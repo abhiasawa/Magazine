@@ -1,0 +1,13 @@
+workspace/
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.env
+.eggs/
+*.egg
+venv/
+.venv/
+token.json
+credentials.json

@@ -1,0 +1,14 @@
+click>=8.0
+python-dotenv
+Pillow>=10.0
+pillow-heif
+deepface
+tf-keras
+flask>=3.0
+werkzeug
+weasyprint>=62
+Jinja2>=3.0
+google-auth
+google-auth-oauthlib
+requests
+tqdm

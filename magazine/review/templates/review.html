@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div data-page="{{ page_type }}">
+
+    <div class="stats-bar">
+        <div class="stat">
+            <span class="stat-number" data-count="approved">{{ counts.approved }}</span>
+            <span class="stat-label">Approved</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number" data-count="rejected">{{ counts.rejected }}</span>
+            <span class="stat-label">Rejected</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number" data-count="total">{{ counts.total }}</span>
+            <span class="stat-label">Total Photos</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" onclick="batchAction('approve_all')">
+            Approve All on Page
+        </button>
+        <button class="btn btn-danger" onclick="batchAction('reject_all')">
+            Reject All on Page
+        </button>
+    </div>
+
+    {% if photos %}
+    <div class="photo-grid">
+        {% for photo in photos %}
+        <div class="photo-card {{ photo.status }}" id="card-{{ photo.id }}">
+            <img
+                src="/thumbnail/{{ photo.id }}"
+                alt="Photo {{ photo.id }}"
+                loading="lazy"
+                onclick="openLightbox('/original/{{ photo.id }}')"
+            >
+            <div class="photo-info">
+                <span class="photo-date">{{ photo.date or 'No date' }}</span>
+                <span class="photo-faces">{{ photo.face_count }} face{{ 's' if photo.face_count != 1 }}</span>
+            </div>
+            <div class="photo-actions">
+                <button class="btn btn-primary" onclick="togglePhoto('{{ photo.id }}', 'approve')">
+                    ♥ Keep
+                </button>
+                <button class="btn btn-danger" onclick="togglePhoto('{{ photo.id }}', 'reject')">
+                    ✕ Skip
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No photos here</h3>
+        <p>{% if page_type == 'candidates' %}No photos with 2 faces were detected. Check the "Other Photos" tab.{% else %}All photos matched the 2-face filter!{% endif %}</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
