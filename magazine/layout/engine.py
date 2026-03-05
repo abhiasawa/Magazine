@@ -12,7 +12,7 @@ from magazine.layout.quotes import get_quotes
 @dataclass
 class PageSpec:
     """Specification for a single magazine page."""
-    template: str  # Template name: cover, dedication, full_bleed, two_photo, three_photo, quote_page, photo_quote_overlay, back_cover
+    template: str
     photos: list[dict] = field(default_factory=list)
     quote: dict | None = None
     title: str = ""
@@ -38,7 +38,6 @@ def load_approved_photos() -> list[dict]:
         if review_state.get(p["id"]) == "approved":
             approved.append(p)
 
-    # Sort by date (None dates go to end)
     approved.sort(key=lambda p: p.get("date_taken") or "9999")
     return approved
 
@@ -48,6 +47,19 @@ def pick_best_photo(photos: list[dict]) -> dict:
     if not photos:
         return None
     return max(photos, key=lambda p: p.get("width", 0) * p.get("height", 0))
+
+
+# Layout sequences — varied page patterns to avoid repetition
+LAYOUT_SEQUENCES = [
+    # Sequence A: dramatic opener, grid, overlay
+    ["full_bleed", "two_photo", "three_photo", "photo_quote_overlay"],
+    # Sequence B: cinematic, editorial, grid
+    ["cinematic", "editorial", "three_photo", "two_photo"],
+    # Sequence C: full bleed, mosaic, overlay
+    ["full_bleed", "mosaic", "photo_quote_overlay", "two_photo"],
+    # Sequence D: editorial, cinematic, grid
+    ["editorial", "full_bleed", "two_photo", "cinematic"],
+]
 
 
 def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Together",
@@ -61,14 +73,13 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
     if not photos:
         raise ValueError("No approved photos found. Run 'magazine review' first.")
 
-    # Get quotes
-    num_quotes = max(4, len(photos) // 8)
+    num_quotes = max(6, len(photos) // 5)
     quotes = get_quotes(num_quotes)
 
     pages: list[PageSpec] = []
     page_num = 1
 
-    # ─── Page 1: Cover ───
+    # --- Cover ---
     cover_photo = pick_best_photo(photos)
     remaining = [p for p in photos if p["id"] != cover_photo["id"]]
 
@@ -81,7 +92,7 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
     ))
     page_num += 1
 
-    # ─── Page 2: Dedication ───
+    # --- Dedication ---
     pages.append(PageSpec(
         template="dedication",
         dedication=dedication,
@@ -89,9 +100,8 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
     ))
     page_num += 1
 
-    # ─── Content Pages ───
-    # Divide remaining photos into sections
-    num_sections = max(2, min(6, len(remaining) // 8))
+    # --- Content Pages ---
+    num_sections = max(2, min(5, len(remaining) // 6))
     section_size = len(remaining) // num_sections
     sections = []
     for i in range(num_sections):
@@ -104,7 +114,6 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
         "Growing Together",
         "Beautiful Moments",
         "Adventures & Joy",
-        "Our Favorite Days",
         "Always & Forever",
     ]
 
@@ -113,7 +122,7 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
     for sec_i, section_photos in enumerate(sections):
         sec_title = section_titles[sec_i] if sec_i < len(section_titles) else f"Chapter {sec_i + 1}"
 
-        # Quote page before each section (except first — dedication serves that role)
+        # Quote page as section divider (except before first section)
         if sec_i > 0 and quote_idx < len(quotes):
             pages.append(PageSpec(
                 template="quote_page",
@@ -124,14 +133,16 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
             page_num += 1
             quote_idx += 1
 
+        # Pick a layout sequence for this section
+        sequence = LAYOUT_SEQUENCES[sec_i % len(LAYOUT_SEQUENCES)]
         idx = 0
-        layout_cycle = 0
+        step = 0
 
         while idx < len(section_photos):
-            remaining_in_section = len(section_photos) - idx
+            left = len(section_photos) - idx
+            template = sequence[step % len(sequence)]
 
-            if layout_cycle % 4 == 0 and remaining_in_section >= 1:
-                # Full-bleed page (pick highest res from available)
+            if template == "full_bleed" and left >= 1:
                 best = pick_best_photo(section_photos[idx:idx + 3])
                 pages.append(PageSpec(
                     template="full_bleed",
@@ -139,14 +150,20 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                     section_title=sec_title if idx == 0 else "",
                     page_number=page_num,
                 ))
-                # Remove used photo and advance
-                section_photos_subset = section_photos[idx:idx + 3]
-                used_idx = section_photos_subset.index(best)
                 idx += 1
                 page_num += 1
 
-            elif layout_cycle % 4 == 1 and remaining_in_section >= 2:
-                # Two-photo spread
+            elif template == "cinematic" and left >= 1:
+                pages.append(PageSpec(
+                    template="cinematic",
+                    photos=[section_photos[idx]],
+                    section_title=sec_title if idx == 0 else "",
+                    page_number=page_num,
+                ))
+                idx += 1
+                page_num += 1
+
+            elif template == "two_photo" and left >= 2:
                 pages.append(PageSpec(
                     template="two_photo",
                     photos=section_photos[idx:idx + 2],
@@ -155,8 +172,7 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 idx += 2
                 page_num += 1
 
-            elif layout_cycle % 4 == 2 and remaining_in_section >= 3:
-                # Three-photo grid
+            elif template == "three_photo" and left >= 3:
                 pages.append(PageSpec(
                     template="three_photo",
                     photos=section_photos[idx:idx + 3],
@@ -165,8 +181,28 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 idx += 3
                 page_num += 1
 
-            elif layout_cycle % 4 == 3 and remaining_in_section >= 1 and quote_idx < len(quotes):
-                # Photo with quote overlay
+            elif template == "mosaic" and left >= 3:
+                count = min(4, left)
+                pages.append(PageSpec(
+                    template="mosaic",
+                    photos=section_photos[idx:idx + count],
+                    page_number=page_num,
+                ))
+                idx += count
+                page_num += 1
+
+            elif template == "editorial" and left >= 1 and quote_idx < len(quotes):
+                pages.append(PageSpec(
+                    template="editorial",
+                    photos=[section_photos[idx]],
+                    quote=quotes[quote_idx],
+                    page_number=page_num,
+                ))
+                idx += 1
+                quote_idx += 1
+                page_num += 1
+
+            elif template == "photo_quote_overlay" and left >= 1 and quote_idx < len(quotes):
                 pages.append(PageSpec(
                     template="photo_quote_overlay",
                     photos=[section_photos[idx]],
@@ -178,8 +214,8 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 page_num += 1
 
             else:
-                # Fallback: single full-bleed
-                if remaining_in_section >= 1:
+                # Fallback: use whatever fits
+                if left >= 1:
                     pages.append(PageSpec(
                         template="full_bleed",
                         photos=[section_photos[idx]],
@@ -190,9 +226,9 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 else:
                     break
 
-            layout_cycle += 1
+            step += 1
 
-    # ─── Closing quote page ───
+    # --- Closing quote ---
     if quote_idx < len(quotes):
         pages.append(PageSpec(
             template="quote_page",
@@ -201,7 +237,7 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
         ))
         page_num += 1
 
-    # ─── Back Cover ───
+    # --- Back Cover ---
     back_photo = photos[-1] if photos else None
     pages.append(PageSpec(
         template="back_cover",

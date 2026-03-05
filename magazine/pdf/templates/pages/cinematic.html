@@ -1,0 +1,13 @@
+<div class="page page-cinematic">
+    <div class="cinematic-bar-top"></div>
+    {% if page.photos %}
+    <div class="cinematic-photo">
+        <img src="{{ page.photos[0].print_path }}">
+    </div>
+    {% endif %}
+    <div class="cinematic-bar-bottom">
+        {% if page.section_title %}
+        <span class="cinematic-caption">{{ page.section_title }}</span>
+        {% endif %}
+    </div>
+</div>

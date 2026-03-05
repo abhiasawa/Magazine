@@ -3,8 +3,8 @@
         {% for photo in page.photos[:2] %}
         <div class="photo-container">
             <img src="{{ photo.print_path }}">
-            <div class="photo-border"></div>
         </div>
         {% endfor %}
     </div>
+    <div class="page-number">{{ page.page_number }}</div>
 </div>

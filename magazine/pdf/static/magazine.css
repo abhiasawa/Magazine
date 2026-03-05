@@ -1,8 +1,9 @@
-/* Photo Magazine - Print-Ready CSS */
+/* ═══════════════════════════════════════════════════════════════
+   PHOTO MAGAZINE — Professional Editorial Design
+   Print-ready A4 | 300 DPI | 3mm bleed
+   ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Great+Vibes&display=swap');
-
-/* ─── Page Setup (A4 with 3mm bleed) ─── */
+/* ─── Page Setup ─── */
 @page {
     size: 210mm 297mm;
     bleed: 3mm;
@@ -16,26 +17,38 @@
 }
 
 :root {
-    --cream: #FFF8F0;
-    --blush: #FDE8E0;
-    --rose-gold: #B76E79;
-    --rose-gold-light: #d4979f;
-    --gold: #C9A96E;
-    --gold-light: #e0c99a;
-    --chocolate: #3C2415;
-    --warm-gray: #7A6B63;
-    --white: #FFFFFF;
+    /* Sophisticated neutral palette */
+    --ink: #1a1a1a;
+    --charcoal: #2d2d2d;
+    --graphite: #4a4a4a;
+    --stone: #8a8a8a;
+    --silver: #c0c0c0;
+    --pearl: #e8e5e0;
+    --ivory: #f5f3ef;
+    --white: #ffffff;
 
+    /* Accent — muted copper/bronze */
+    --accent: #9e7c5c;
+    --accent-light: #c4a882;
+    --accent-dark: #7a5d3f;
+
+    /* Warm tint for photo backgrounds */
+    --warm-black: #1c1915;
+    --warm-dark: #2a2520;
+
+    /* Page dimensions */
     --page-w: 210mm;
     --page-h: 297mm;
     --bleed: 3mm;
-    --safe-margin: 15mm;
+    --margin: 18mm;
+    --margin-inner: 22mm;
 }
 
 body {
-    font-family: 'Cormorant Garamond', 'Georgia', serif;
-    color: var(--chocolate);
-    background: var(--cream);
+    font-family: 'EB Garamond', 'Noto Serif', 'Georgia', serif;
+    color: var(--ink);
+    background: var(--white);
+    -webkit-font-smoothing: antialiased;
 }
 
 /* ─── Page Container ─── */
@@ -45,18 +58,19 @@ body {
     position: relative;
     overflow: hidden;
     page-break-after: always;
-    background: var(--cream);
+    background: var(--white);
 }
 
 .page:last-child {
     page-break-after: auto;
 }
 
+
 /* ═══════════════════════════════════════
    COVER PAGE
    ═══════════════════════════════════════ */
 .page-cover {
-    background: var(--chocolate);
+    background: var(--warm-black);
 }
 
 .page-cover .cover-image {
@@ -66,44 +80,67 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    opacity: 0.85;
+    opacity: 0.6;
+    filter: contrast(1.1) brightness(0.9);
 }
 
 .page-cover .cover-overlay {
     position: absolute;
-    bottom: 0;
+    top: 0;
     left: 0;
     right: 0;
-    padding: 40mm var(--safe-margin) 30mm;
-    background: linear-gradient(to top, rgba(60, 36, 21, 0.9) 0%, rgba(60, 36, 21, 0.6) 50%, transparent 100%);
-    text-align: center;
-    color: var(--cream);
+    bottom: 0;
+    background: linear-gradient(
+        180deg,
+        rgba(28, 25, 21, 0.15) 0%,
+        rgba(28, 25, 21, 0.0) 30%,
+        rgba(28, 25, 21, 0.0) 50%,
+        rgba(28, 25, 21, 0.5) 75%,
+        rgba(28, 25, 21, 0.92) 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 var(--margin) 35mm;
+    text-align: left;
+}
+
+.page-cover .cover-eyebrow {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 6pt;
+    color: var(--accent-light);
+    margin-bottom: 6mm;
 }
 
 .page-cover .cover-title {
-    font-family: 'Great Vibes', cursive;
-    font-size: 28pt;
-    font-weight: 400;
-    color: var(--cream);
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 42pt;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1.05;
     margin-bottom: 5mm;
-    letter-spacing: 1pt;
+    letter-spacing: -0.5pt;
+}
+
+.page-cover .cover-rule {
+    width: 50mm;
+    height: 0.8pt;
+    background: var(--accent);
+    margin-bottom: 5mm;
 }
 
 .page-cover .cover-subtitle {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 11pt;
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 10pt;
     font-weight: 300;
-    color: var(--gold-light);
+    color: var(--pearl);
+    letter-spacing: 2pt;
     text-transform: uppercase;
-    letter-spacing: 5pt;
 }
 
-.page-cover .cover-line {
-    width: 30mm;
-    height: 0.5pt;
-    background: var(--gold);
-    margin: 5mm auto;
-}
 
 /* ═══════════════════════════════════════
    DEDICATION PAGE
@@ -112,43 +149,55 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--cream);
+    background: var(--ivory);
 }
 
 .page-dedication .dedication-content {
     text-align: center;
-    padding: var(--safe-margin);
-    max-width: 140mm;
+    padding: var(--margin);
+    max-width: 130mm;
 }
 
-.page-dedication .dedication-ornament {
-    width: 60mm;
-    margin: 0 auto 10mm;
-    opacity: 0.7;
+.page-dedication .dedication-rule {
+    width: 40mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin: 0 auto 12mm;
+}
+
+.page-dedication .dedication-label {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 5pt;
+    color: var(--stone);
+    margin-bottom: 15mm;
 }
 
 .page-dedication .dedication-text {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 14pt;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 15pt;
     font-style: italic;
-    font-weight: 300;
-    line-height: 2;
-    color: var(--chocolate);
-    margin-bottom: 10mm;
+    font-weight: 400;
+    line-height: 2.2;
+    color: var(--charcoal);
+    margin-bottom: 15mm;
 }
 
-.page-dedication .dedication-ornament-bottom {
-    width: 60mm;
-    margin: 10mm auto 0;
-    opacity: 0.7;
-    transform: rotate(180deg);
+.page-dedication .dedication-rule-bottom {
+    width: 40mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin: 0 auto;
 }
+
 
 /* ═══════════════════════════════════════
    FULL BLEED PAGE
    ═══════════════════════════════════════ */
 .page-full-bleed {
-    background: var(--chocolate);
+    background: var(--warm-black);
 }
 
 .page-full-bleed .full-image {
@@ -162,46 +211,57 @@ body {
 
 .page-full-bleed .section-label {
     position: absolute;
-    bottom: 12mm;
-    left: 0;
-    right: 0;
-    text-align: center;
+    bottom: 15mm;
+    left: var(--margin);
+    right: var(--margin);
+    text-align: left;
 }
 
 .page-full-bleed .section-label span {
-    font-family: 'Playfair Display', serif;
-    font-size: 9pt;
-    font-weight: 600;
-    color: var(--cream);
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 700;
+    color: var(--white);
     text-transform: uppercase;
-    letter-spacing: 4pt;
-    background: rgba(60, 36, 21, 0.6);
-    padding: 2mm 8mm;
-    border-radius: 1mm;
+    letter-spacing: 5pt;
+    padding: 2.5mm 5mm;
+    background: rgba(28, 25, 21, 0.7);
+    -webkit-backdrop-filter: blur(4px);
 }
+
+.page-full-bleed .page-number {
+    position: absolute;
+    bottom: 15mm;
+    right: var(--margin);
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1pt;
+}
+
 
 /* ═══════════════════════════════════════
    TWO-PHOTO SPREAD
    ═══════════════════════════════════════ */
 .page-two-photo {
+    padding: var(--margin);
+    background: var(--white);
     display: flex;
     flex-direction: column;
-    padding: var(--safe-margin);
-    gap: 4mm;
-    background: var(--cream);
+    gap: 0;
 }
 
 .page-two-photo .photos-row {
     flex: 1;
     display: flex;
-    gap: 4mm;
+    gap: 3mm;
 }
 
 .page-two-photo .photo-container {
     flex: 1;
     position: relative;
     overflow: hidden;
-    border-radius: 2mm;
 }
 
 .page-two-photo .photo-container img {
@@ -213,34 +273,43 @@ body {
     left: 0;
 }
 
-.page-two-photo .photo-border {
-    position: absolute;
-    top: 2mm;
-    left: 2mm;
-    right: 2mm;
-    bottom: 2mm;
-    border: 0.3pt solid var(--gold);
-    border-radius: 1mm;
-    opacity: 0.4;
-    pointer-events: none;
+.page-two-photo .spread-caption {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 6.5pt;
+    font-weight: 400;
+    color: var(--stone);
+    text-transform: uppercase;
+    letter-spacing: 3pt;
+    text-align: center;
+    padding-top: 4mm;
 }
+
+.page-two-photo .page-number {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 400;
+    color: var(--silver);
+    text-align: center;
+    padding-top: 2mm;
+    letter-spacing: 1pt;
+}
+
 
 /* ═══════════════════════════════════════
    THREE-PHOTO GRID
    ═══════════════════════════════════════ */
 .page-three-photo {
-    padding: var(--safe-margin);
-    background: var(--cream);
+    padding: var(--margin);
+    background: var(--white);
     display: flex;
     flex-direction: column;
-    gap: 4mm;
+    gap: 3mm;
 }
 
 .page-three-photo .photo-large {
-    flex: 1.5;
+    flex: 1.6;
     position: relative;
     overflow: hidden;
-    border-radius: 2mm;
 }
 
 .page-three-photo .photo-large img {
@@ -255,14 +324,13 @@ body {
 .page-three-photo .photos-bottom {
     flex: 1;
     display: flex;
-    gap: 4mm;
+    gap: 3mm;
 }
 
 .page-three-photo .photo-small {
     flex: 1;
     position: relative;
     overflow: hidden;
-    border-radius: 2mm;
 }
 
 .page-three-photo .photo-small img {
@@ -274,67 +342,93 @@ body {
     left: 0;
 }
 
+.page-three-photo .page-number {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 400;
+    color: var(--silver);
+    text-align: right;
+    padding-top: 3mm;
+    letter-spacing: 1pt;
+}
+
+
 /* ═══════════════════════════════════════
-   QUOTE PAGE
+   QUOTE PAGE — Editorial style
    ═══════════════════════════════════════ */
 .page-quote {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, var(--cream) 0%, var(--blush) 50%, var(--cream) 100%);
+    background: var(--ivory);
+    position: relative;
+}
+
+.page-quote .quote-accent-bar {
+    position: absolute;
+    left: 25mm;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2pt;
+    height: 80mm;
+    background: var(--accent);
 }
 
 .page-quote .quote-content {
-    text-align: center;
-    padding: 30mm var(--safe-margin);
-    max-width: 150mm;
+    text-align: left;
+    padding: 40mm 35mm 40mm 40mm;
+    max-width: 160mm;
 }
 
 .page-quote .quote-mark {
-    font-family: 'Playfair Display', serif;
-    font-size: 60pt;
-    color: var(--rose-gold);
-    opacity: 0.3;
-    line-height: 0.5;
-    margin-bottom: 8mm;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 72pt;
+    color: var(--accent);
+    line-height: 0.6;
+    margin-bottom: 6mm;
+    display: block;
 }
 
 .page-quote .quote-text {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 16pt;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 18pt;
     font-style: italic;
-    font-weight: 300;
-    line-height: 1.8;
-    color: var(--chocolate);
-    margin-bottom: 8mm;
+    font-weight: 400;
+    line-height: 1.9;
+    color: var(--charcoal);
+    margin-bottom: 10mm;
 }
 
-.page-quote .quote-divider {
-    width: 40mm;
-    margin: 0 auto 5mm;
+.page-quote .quote-rule {
+    width: 25mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin-bottom: 5mm;
 }
 
 .page-quote .quote-author {
-    font-family: 'Playfair Display', serif;
-    font-size: 10pt;
-    font-weight: 600;
-    color: var(--rose-gold);
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 8pt;
+    font-weight: 700;
+    color: var(--accent-dark);
     text-transform: uppercase;
     letter-spacing: 3pt;
 }
 
 .page-quote .section-name {
-    font-family: 'Great Vibes', cursive;
-    font-size: 22pt;
-    color: var(--gold);
-    margin-top: 15mm;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 12pt;
+    font-style: italic;
+    color: var(--stone);
+    margin-top: 20mm;
 }
+
 
 /* ═══════════════════════════════════════
    PHOTO + QUOTE OVERLAY
    ═══════════════════════════════════════ */
 .page-photo-quote {
-    background: var(--chocolate);
+    background: var(--warm-black);
 }
 
 .page-photo-quote .bg-image {
@@ -344,39 +438,218 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    opacity: 0.7;
+    filter: brightness(0.65) contrast(1.1);
 }
 
 .page-photo-quote .quote-overlay {
     position: absolute;
-    bottom: 25mm;
-    left: var(--safe-margin);
-    right: var(--safe-margin);
-    background: rgba(255, 248, 240, 0.92);
-    padding: 10mm 12mm;
-    border-radius: 3mm;
-    text-align: center;
-    box-shadow: 0 2mm 8mm rgba(0, 0, 0, 0.1);
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 25mm var(--margin) 25mm;
+    background: linear-gradient(
+        to top,
+        rgba(28, 25, 21, 0.95) 0%,
+        rgba(28, 25, 21, 0.7) 60%,
+        transparent 100%
+    );
+    text-align: left;
+}
+
+.page-photo-quote .quote-overlay .overlay-rule {
+    width: 30mm;
+    height: 0.8pt;
+    background: var(--accent-light);
+    margin-bottom: 5mm;
 }
 
 .page-photo-quote .quote-overlay .overlay-text {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 13pt;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 15pt;
     font-style: italic;
     font-weight: 400;
-    line-height: 1.7;
-    color: var(--chocolate);
-    margin-bottom: 4mm;
+    line-height: 1.8;
+    color: var(--white);
+    margin-bottom: 5mm;
+    max-width: 140mm;
 }
 
 .page-photo-quote .quote-overlay .overlay-author {
-    font-family: 'Playfair Display', serif;
-    font-size: 8pt;
-    font-weight: 600;
-    color: var(--rose-gold);
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 700;
+    color: var(--accent-light);
     text-transform: uppercase;
-    letter-spacing: 2pt;
+    letter-spacing: 3pt;
 }
+
+
+/* ═══════════════════════════════════════
+   EDITORIAL SPREAD — Hero + sidebar text
+   ═══════════════════════════════════════ */
+.page-editorial {
+    display: flex;
+    background: var(--white);
+}
+
+.page-editorial .editorial-photo {
+    flex: 1.3;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-editorial .editorial-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.page-editorial .editorial-sidebar {
+    flex: 0.7;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 25mm 18mm;
+    background: var(--ivory);
+}
+
+.page-editorial .editorial-sidebar .sidebar-rule {
+    width: 20mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin-bottom: 8mm;
+}
+
+.page-editorial .editorial-sidebar .sidebar-quote {
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 13pt;
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.9;
+    color: var(--charcoal);
+    margin-bottom: 6mm;
+}
+
+.page-editorial .editorial-sidebar .sidebar-author {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 6.5pt;
+    font-weight: 700;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 2.5pt;
+}
+
+.page-editorial .page-number {
+    position: absolute;
+    bottom: 12mm;
+    right: 15mm;
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    color: var(--silver);
+    letter-spacing: 1pt;
+}
+
+
+/* ═══════════════════════════════════════
+   MOSAIC — 4-photo asymmetric grid
+   ═══════════════════════════════════════ */
+.page-mosaic {
+    padding: var(--margin);
+    background: var(--white);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.2fr 1fr;
+    gap: 3mm;
+}
+
+.page-mosaic .mosaic-cell {
+    position: relative;
+    overflow: hidden;
+}
+
+.page-mosaic .mosaic-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.page-mosaic .mosaic-cell:first-child {
+    grid-column: 1 / 3;
+}
+
+.page-mosaic .mosaic-footer {
+    grid-column: 1 / 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 2mm;
+}
+
+.page-mosaic .mosaic-footer .mosaic-label {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 6.5pt;
+    color: var(--stone);
+    text-transform: uppercase;
+    letter-spacing: 3pt;
+}
+
+.page-mosaic .mosaic-footer .page-number {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    color: var(--silver);
+    letter-spacing: 1pt;
+}
+
+
+/* ═══════════════════════════════════════
+   CINEMATIC — Letterboxed photo
+   ═══════════════════════════════════════ */
+.page-cinematic {
+    background: var(--warm-black);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.page-cinematic .cinematic-bar-top,
+.page-cinematic .cinematic-bar-bottom {
+    flex: 0 0 55mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-cinematic .cinematic-photo {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-cinematic .cinematic-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.page-cinematic .cinematic-bar-bottom .cinematic-caption {
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 6.5pt;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 4pt;
+}
+
 
 /* ═══════════════════════════════════════
    BACK COVER
@@ -385,43 +658,52 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--chocolate);
-    color: var(--cream);
+    background: var(--warm-black);
+    color: var(--pearl);
 }
 
 .page-back-cover .back-content {
     text-align: center;
-    padding: var(--safe-margin);
+    padding: var(--margin);
 }
 
 .page-back-cover .back-photo {
-    width: 50mm;
-    height: 50mm;
+    width: 55mm;
+    height: 55mm;
     border-radius: 50%;
     object-fit: cover;
-    border: 1pt solid var(--gold);
-    margin-bottom: 10mm;
+    border: 1.5pt solid var(--accent);
+    margin-bottom: 12mm;
+}
+
+.page-back-cover .back-rule {
+    width: 30mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin: 0 auto 8mm;
 }
 
 .page-back-cover .back-title {
-    font-family: 'Great Vibes', cursive;
-    font-size: 24pt;
-    color: var(--gold-light);
-    margin-bottom: 5mm;
+    font-family: 'EB Garamond', 'Noto Serif', serif;
+    font-size: 20pt;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--pearl);
+    margin-bottom: 6mm;
 }
 
 .page-back-cover .back-message {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 10pt;
-    font-weight: 300;
-    color: var(--cream);
-    opacity: 0.8;
-    letter-spacing: 2pt;
+    font-family: 'Lato', 'Open Sans', sans-serif;
+    font-size: 7pt;
+    font-weight: 400;
+    color: var(--stone);
+    letter-spacing: 4pt;
     text-transform: uppercase;
 }
 
-.page-back-cover .back-heart {
-    font-size: 18pt;
-    color: var(--rose-gold);
-    margin-top: 8mm;
+.page-back-cover .back-accent {
+    width: 6mm;
+    height: 0.5pt;
+    background: var(--accent);
+    margin: 10mm auto 0;
 }
