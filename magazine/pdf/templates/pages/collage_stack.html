@@ -1,0 +1,24 @@
+<div class="page page-collage-stack">
+    {% if page.photos|length >= 1 %}
+    <div class="polaroid stack-1">
+        <img src="{{ page.photos[0].print_path }}">
+    </div>
+    {% endif %}
+    {% if page.photos|length >= 2 %}
+    <div class="polaroid stack-2">
+        <img src="{{ page.photos[1].print_path }}">
+    </div>
+    {% endif %}
+    {% if page.photos|length >= 3 %}
+    <div class="polaroid stack-3">
+        <img src="{{ page.photos[2].print_path }}">
+        <div class="tape tape-h" style="position:absolute; top:-3mm; left:45mm; transform:rotate(3deg);"></div>
+    </div>
+    {% endif %}
+    {% if page.quote %}
+    <div class="stack-quote">
+        <p class="stack-quote-text">&ldquo;{{ page.quote.text }}&rdquo;</p>
+        <p class="stack-quote-author">&mdash; {{ page.quote.author }}</p>
+    </div>
+    {% endif %}
+</div>

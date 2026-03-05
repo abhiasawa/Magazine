@@ -1,0 +1,11 @@
+<div class="page page-big-polaroid">
+    <div class="tape tape-h big-tape"></div>
+    {% if page.photos %}
+    <div class="big-frame">
+        <img src="{{ page.photos[0].print_path }}">
+        {% if page.quote %}
+        <div class="big-caption">&ldquo;{{ page.quote.text }}&rdquo;</div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

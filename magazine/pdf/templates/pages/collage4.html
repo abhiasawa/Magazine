@@ -1,0 +1,26 @@
+<div class="page page-collage4">
+    {% if page.photos|length >= 1 %}
+    <div class="polaroid photo-tl">
+        <img src="{{ page.photos[0].print_path }}">
+        <div class="tape tape-h" style="position:absolute; top:-3mm; left:30mm; transform:rotate(3deg);"></div>
+    </div>
+    {% endif %}
+    {% if page.photos|length >= 2 %}
+    <div class="polaroid photo-tr">
+        <img src="{{ page.photos[1].print_path }}">
+        <div class="tape tape-h" style="position:absolute; top:-3mm; left:25mm; transform:rotate(-5deg);"></div>
+    </div>
+    {% endif %}
+    {% if page.photos|length >= 3 %}
+    <div class="polaroid photo-bl">
+        <img src="{{ page.photos[2].print_path }}">
+        <div class="tape tape-h" style="position:absolute; top:-3mm; left:35mm; transform:rotate(2deg);"></div>
+    </div>
+    {% endif %}
+    {% if page.photos|length >= 4 %}
+    <div class="polaroid photo-br">
+        <img src="{{ page.photos[3].print_path }}">
+        <div class="tape tape-h" style="position:absolute; top:-3mm; left:28mm; transform:rotate(-4deg);"></div>
+    </div>
+    {% endif %}
+</div>

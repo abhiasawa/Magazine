@@ -1,7 +1,6 @@
-"""Layout engine: distributes approved photos across magazine page templates."""
+"""Layout engine: distributes approved photos across collage-style magazine pages."""
 
 import json
-import random
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -49,31 +48,25 @@ def pick_best_photo(photos: list[dict]) -> dict:
     return max(photos, key=lambda p: p.get("width", 0) * p.get("height", 0))
 
 
-# Layout sequences — varied page patterns to avoid repetition
+# Collage layout sequences — varied patterns per section
 LAYOUT_SEQUENCES = [
-    # Sequence A: dramatic opener, grid, overlay
-    ["full_bleed", "two_photo", "three_photo", "photo_quote_overlay"],
-    # Sequence B: cinematic, editorial, grid
-    ["cinematic", "editorial", "three_photo", "two_photo"],
-    # Sequence C: full bleed, mosaic, overlay
-    ["full_bleed", "mosaic", "photo_quote_overlay", "two_photo"],
-    # Sequence D: editorial, cinematic, grid
-    ["editorial", "full_bleed", "two_photo", "cinematic"],
+    ["full_bleed", "collage3", "big_polaroid", "collage2"],
+    ["big_polaroid", "collage4", "photo_quote_overlay", "collage3"],
+    ["full_bleed", "collage_stack", "collage2", "collage4"],
+    ["collage3", "big_polaroid", "collage4", "photo_quote_overlay"],
+    ["big_polaroid", "collage2", "collage_stack", "collage3"],
 ]
 
 
 def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Together",
                  dedication: str = "For you, with all my love") -> list[PageSpec]:
-    """Build the complete magazine layout from approved photos.
-
-    Returns an ordered list of PageSpec objects defining each page.
-    """
+    """Build collage-style magazine layout from approved photos."""
     photos = load_approved_photos()
 
     if not photos:
         raise ValueError("No approved photos found. Run 'magazine review' first.")
 
-    num_quotes = max(6, len(photos) // 5)
+    num_quotes = max(6, len(photos) // 4)
     quotes = get_quotes(num_quotes)
 
     pages: list[PageSpec] = []
@@ -122,7 +115,7 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
     for sec_i, section_photos in enumerate(sections):
         sec_title = section_titles[sec_i] if sec_i < len(section_titles) else f"Chapter {sec_i + 1}"
 
-        # Quote page as section divider (except before first section)
+        # Quote page as section divider
         if sec_i > 0 and quote_idx < len(quotes):
             pages.append(PageSpec(
                 template="quote_page",
@@ -133,7 +126,6 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
             page_num += 1
             quote_idx += 1
 
-        # Pick a layout sequence for this section
         sequence = LAYOUT_SEQUENCES[sec_i % len(LAYOUT_SEQUENCES)]
         idx = 0
         step = 0
@@ -153,52 +145,56 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 idx += 1
                 page_num += 1
 
-            elif template == "cinematic" and left >= 1:
+            elif template == "collage3" and left >= 3:
                 pages.append(PageSpec(
-                    template="cinematic",
-                    photos=[section_photos[idx]],
+                    template="collage3",
+                    photos=section_photos[idx:idx + 3],
                     section_title=sec_title if idx == 0 else "",
                     page_number=page_num,
                 ))
-                idx += 1
+                idx += 3
                 page_num += 1
 
-            elif template == "two_photo" and left >= 2:
+            elif template == "collage2" and left >= 2:
                 pages.append(PageSpec(
-                    template="two_photo",
+                    template="collage2",
                     photos=section_photos[idx:idx + 2],
                     page_number=page_num,
                 ))
                 idx += 2
                 page_num += 1
 
-            elif template == "three_photo" and left >= 3:
-                pages.append(PageSpec(
-                    template="three_photo",
-                    photos=section_photos[idx:idx + 3],
-                    page_number=page_num,
-                ))
-                idx += 3
-                page_num += 1
-
-            elif template == "mosaic" and left >= 3:
+            elif template == "collage4" and left >= 3:
                 count = min(4, left)
                 pages.append(PageSpec(
-                    template="mosaic",
+                    template="collage4",
                     photos=section_photos[idx:idx + count],
                     page_number=page_num,
                 ))
                 idx += count
                 page_num += 1
 
-            elif template == "editorial" and left >= 1 and quote_idx < len(quotes):
+            elif template == "big_polaroid" and left >= 1:
+                q = quotes[quote_idx] if quote_idx < len(quotes) else None
                 pages.append(PageSpec(
-                    template="editorial",
+                    template="big_polaroid",
                     photos=[section_photos[idx]],
+                    quote=q,
+                    page_number=page_num,
+                ))
+                if q:
+                    quote_idx += 1
+                idx += 1
+                page_num += 1
+
+            elif template == "collage_stack" and left >= 3 and quote_idx < len(quotes):
+                pages.append(PageSpec(
+                    template="collage_stack",
+                    photos=section_photos[idx:idx + 3],
                     quote=quotes[quote_idx],
                     page_number=page_num,
                 ))
-                idx += 1
+                idx += 3
                 quote_idx += 1
                 page_num += 1
 
@@ -214,10 +210,18 @@ def build_layout(title: str = "Our Love Story", subtitle: str = "A Journey Toget
                 page_num += 1
 
             else:
-                # Fallback: use whatever fits
-                if left >= 1:
+                # Fallback
+                if left >= 2:
                     pages.append(PageSpec(
-                        template="full_bleed",
+                        template="collage2",
+                        photos=section_photos[idx:idx + 2],
+                        page_number=page_num,
+                    ))
+                    idx += 2
+                    page_num += 1
+                elif left >= 1:
+                    pages.append(PageSpec(
+                        template="big_polaroid",
                         photos=[section_photos[idx]],
                         page_number=page_num,
                     ))
