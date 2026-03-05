@@ -1,0 +1,11 @@
+<div class="page page-photo-quote">
+    {% if page.photos %}
+    <img class="bg-image" src="{{ page.photos[0].print_path }}">
+    {% endif %}
+    {% if page.quote %}
+    <div class="quote-overlay">
+        <p class="overlay-text">&ldquo;{{ page.quote.text }}&rdquo;</p>
+        <p class="overlay-author">&mdash; {{ page.quote.author }}</p>
+    </div>
+    {% endif %}
+</div>

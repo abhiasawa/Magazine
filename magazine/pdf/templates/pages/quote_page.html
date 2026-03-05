@@ -1,0 +1,13 @@
+<div class="page page-quote">
+    <div class="quote-content">
+        <div class="quote-mark">&ldquo;</div>
+        {% if page.quote %}
+        <p class="quote-text">{{ page.quote.text }}</p>
+        <img class="quote-divider" src="{{ ornament_divider }}">
+        <p class="quote-author">&mdash; {{ page.quote.author }}</p>
+        {% endif %}
+        {% if page.section_title %}
+        <p class="section-name">{{ page.section_title }}</p>
+        {% endif %}
+    </div>
+</div>

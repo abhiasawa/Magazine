@@ -1,0 +1,10 @@
+<div class="page page-two-photo">
+    <div class="photos-row">
+        {% for photo in page.photos[:2] %}
+        <div class="photo-container">
+            <img src="{{ photo.print_path }}">
+            <div class="photo-border"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
