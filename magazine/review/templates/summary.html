@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="summary-container">
+    <h2>Your Selection</h2>
+    <p class="subtitle">Ready to create something beautiful</p>
+
+    <span class="ornament">&#10045; &#10045; &#10045;</span>
+
+    <div class="summary-stats">
+        <div class="summary-stat">
+            <span class="number">{{ counts.approved }}</span>
+            <span class="label">Photos Selected</span>
+        </div>
+        <div class="summary-stat">
+            <span class="number">{{ estimated_pages }}</span>
+            <span class="label">Magazine Pages</span>
+        </div>
+    </div>
+
+    {% if counts.approved < 10 %}
+    <div class="message message-info">
+        You have {{ counts.approved }} photos selected. We recommend at least 20-30 photos for a beautiful 40+ page magazine.
+        Consider approving more photos in the review tabs.
+    </div>
+    {% endif %}
+
+    <div class="generate-section">
+        <h3>Magazine Details</h3>
+        <form action="/generate" method="POST">
+            <div class="form-group">
+                <label for="title">Magazine Title</label>
+                <input type="text" id="title" name="title" value="Our Love Story" placeholder="Enter magazine title...">
+            </div>
+            <div class="form-group">
+                <label for="subtitle">Subtitle</label>
+                <input type="text" id="subtitle" name="subtitle" value="A Journey Together" placeholder="Enter subtitle...">
+            </div>
+            <div class="form-group">
+                <label for="dedication">Dedication</label>
+                <textarea id="dedication" name="dedication" placeholder="Write a dedication message...">For you, with all my love</textarea>
+            </div>
+            <br>
+            <button type="submit" class="btn btn-success">
+                Generate Magazine
+            </button>
+        </form>
+    </div>
+
+    <span class="ornament">&#10045; &#10045; &#10045;</span>
+
+    {% if counts.approved > 0 %}
+    <div class="photo-grid" style="margin-top: 2rem;">
+        {% for photo in approved_photos %}
+        <div class="photo-card approved">
+            <img
+                src="/thumbnail/{{ photo.id }}"
+                alt="Photo {{ photo.id }}"
+                loading="lazy"
+                onclick="openLightbox('/original/{{ photo.id }}')"
+            >
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

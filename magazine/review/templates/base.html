@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title | default('Photo Magazine') }} - Review Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Photo Magazine</h1>
+        <p>Curate Your Love Story</p>
+    </header>
+
+    <nav>
+        <a href="{{ url_for('review_candidates') }}" class="{{ 'active' if active_page == 'candidates' }}">
+            Candidates ♥
+        </a>
+        <a href="{{ url_for('review_others') }}" class="{{ 'active' if active_page == 'others' }}">
+            Other Photos
+        </a>
+        <a href="{{ url_for('summary') }}" class="{{ 'active' if active_page == 'summary' }}">
+            Summary & Generate
+        </a>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="message message-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img id="lightbox-img" src="" alt="Full size">
+    </div>
+
+    <footer>
+        <p>Made with <span class="heart">♥</span> for your love story</p>
+    </footer>
+
+    <script>
+        function togglePhoto(photoId, action) {
+            fetch('/api/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: photoId, action: action})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById('card-' + photoId);
+                    card.classList.remove('approved', 'rejected');
+                    card.classList.add(data.status);
+                    updateCounts();
+                }
+            });
+        }
+
+        function batchAction(action) {
+            const page = document.body.dataset.page || 'candidates';
+            fetch('/api/batch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: action, page: page})
+            })
+            .then(r => r.json())
+            .then(() => location.reload());
+        }
+
+        function updateCounts() {
+            fetch('/api/counts')
+            .then(r => r.json())
+            .then(data => {
+                document.querySelectorAll('[data-count]').forEach(el => {
+                    const key = el.dataset.count;
+                    if (data[key] !== undefined) el.textContent = data[key];
+                });
+            });
+        }
+
+        function openLightbox(src) {
+            event.stopPropagation();
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeLightbox();
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
