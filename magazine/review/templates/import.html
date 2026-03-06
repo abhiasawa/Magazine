@@ -30,8 +30,8 @@
                     <span class="google-dot google-dot-green"></span>
                     <span class="google-dot google-dot-blue"></span>
                 </span>
-                <span>Choose in Google Photos</span>
-                <span class="btn-arrow" aria-hidden="true">→</span>
+                <span id="google-start-label">Choose in Google Photos</span>
+                <span class="btn-arrow" id="google-start-arrow" aria-hidden="true">→</span>
             </button>
             {% else %}
             <button class="btn btn-primary" disabled>Google Photos unavailable</button>
@@ -96,6 +96,8 @@
     const googleStart = document.getElementById('google-start');
     const googleStatus = document.getElementById('google-status');
     const googleDetail = document.getElementById('google-detail');
+    const googleStartLabel = document.getElementById('google-start-label');
+    const googleStartArrow = document.getElementById('google-start-arrow');
     const generatePanel = document.getElementById('generate-panel');
     const tokenInput = document.getElementById('google-token-input');
     const sessionInput = document.getElementById('google-session-input');
@@ -134,6 +136,9 @@
         if (!session) {
             googleStatusPanel.hidden = true;
             googleReset.hidden = true;
+            if (googleStart) googleStart.disabled = false;
+            if (googleStartLabel) googleStartLabel.textContent = 'Choose in Google Photos';
+            if (googleStartArrow) googleStartArrow.hidden = false;
             googleStatus.textContent = 'Connecting to Google Photos.';
             googleDetail.textContent = 'Approve access, choose the photos you want, then press Done in Google Photos.';
             flowStateEl.textContent = 'Idle';
@@ -146,6 +151,25 @@
         }
         googleStatusPanel.hidden = false;
         googleReset.hidden = false;
+        if (googleStartLabel) {
+            if (session.status === 'ready') {
+                googleStartLabel.textContent = 'Photos fetched from Google Photos';
+            } else if (session.status === 'waiting_selection') {
+                googleStartLabel.textContent = 'Waiting for Google Photos';
+            } else if (session.status === 'connecting') {
+                googleStartLabel.textContent = 'Connecting to Google Photos';
+            } else if (session.status === 'error') {
+                googleStartLabel.textContent = 'Retry Google Photos';
+            } else {
+                googleStartLabel.textContent = 'Choose in Google Photos';
+            }
+        }
+        if (googleStart) {
+            googleStart.disabled = session.status === 'waiting_selection' || session.status === 'ready';
+        }
+        if (googleStartArrow) {
+            googleStartArrow.hidden = session.status === 'waiting_selection' || session.status === 'ready';
+        }
         googleStatus.textContent = session.message || 'Working';
         googleDetail.textContent = session.detail || '';
         flowStateEl.textContent = session.status || 'Working';
@@ -276,10 +300,12 @@
                 return;
             }
             session.status = data.status;
-            session.message = data.message;
+            session.message = data.status === 'ready'
+                ? `${data.selected_total || 0} photos fetched from Google Photos.`
+                : data.message;
             session.detail = data.status === 'ready'
-                ? 'Selection complete. Generating your magazine now.'
-                : 'Keep the Google Photos window open until you finish selecting.';
+                ? 'Google Photos is done. Your selection is back here and generation is starting.'
+                : 'Keep the Google Photos tab open until you finish selecting and press Done.';
             session.selectedTotal = data.selected_total || 0;
             saveSession(session);
             renderSession(session);
@@ -344,7 +370,7 @@
             sessionId: data.sessionId || '',
             status: 'waiting_selection',
             message: 'Choose your photos in Google Photos.',
-            detail: 'When you press Done in Google Photos, we will count them here and start generation.',
+            detail: 'When you press Done in Google Photos, this page will switch to photos fetched automatically.',
             selectedTotal: 0,
         });
         renderSession(loadSession());
@@ -398,6 +424,19 @@
             if (existingToast) existingToast.remove();
         });
     }
+
+    function syncPickerStateNow() {
+        const session = loadSession();
+        if (!session?.token || !session?.sessionId) return;
+        if (session.status === 'waiting_selection') {
+            pollSelectionStatus();
+        }
+    }
+
+    window.addEventListener('focus', syncPickerStateNow);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncPickerStateNow();
+    });
 
     renderSession(null);
 </script>
