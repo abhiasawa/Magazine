@@ -2,66 +2,85 @@
 
 {% block content %}
 <section class="hero">
-    <h1 class="hero-title">Turn memories into something you hold.</h1>
+    <div class="hero-frame">
+        <span class="hero-kicker">Established 2024</span>
+        <h1 class="hero-title">
+            <span>Turn</span>
+            <span class="hero-shift hero-shift-wide">memories</span>
+            <span class="hero-shift hero-shift-mid">into</span>
+            <span class="hero-muted">something</span>
+            <span>you hold.</span>
+        </h1>
+    </div>
     <p class="hero-sub">Select photos from Google Photos and receive a print-ready editorial magazine. No design skills needed.</p>
+    <div class="hero-meta">
+        <span class="hero-meta-line"></span>
+        <p>Print-on-demand editorial keepsake</p>
+    </div>
 </section>
 
 <section class="cta-section">
-    {% if google_configured %}
-    <button id="google-start" class="btn btn-primary">Choose Your Photos</button>
-    {% else %}
-    <button class="btn btn-primary" disabled>Google Photos unavailable</button>
-    {% endif %}
-    <p class="cta-help">Opens Google Photos so you can pick the moments that matter.</p>
-
-    <button type="button" id="google-reset" class="btn btn-ghost">Start over</button>
-
-    <div class="status-bar" id="google-status-panel">
-        <div class="status-row">
-            <span class="status-label">Status</span>
-            <span class="status-value" id="google-status">Your magazine is waiting.</span>
+    <div class="cta-card">
+        <div class="cta-actions">
+            {% if google_configured %}
+            <button id="google-start" class="btn btn-primary">
+                <span>Choose Your Photos</span>
+                <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+            {% else %}
+            <button class="btn btn-primary" disabled>Google Photos unavailable</button>
+            {% endif %}
+            <p class="cta-help">Opens Google Photos so you can pick the moments that matter.</p>
+            <button type="button" id="google-reset" class="btn btn-ghost">Start over</button>
         </div>
-        <p class="status-detail" id="google-detail">Select your photos in Google Photos. Once you've picked the moments, we'll handle the rest.</p>
-        <div class="status-metrics">
-            <div class="metric">
-                <span class="metric-num" id="selected-total">0</span>
-                <span class="metric-label">Selected</span>
-            </div>
-            <div class="metric">
-                <span class="metric-num" id="estimated-pages">0</span>
-                <span class="metric-label">Pages</span>
-            </div>
-            <div class="metric">
-                <span class="metric-num" id="flow-state">Waiting</span>
-                <span class="metric-label">Flow</span>
-            </div>
-        </div>
-    </div>
 
-    <div class="generate-panel" id="generate-panel" hidden>
-        <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
-            <input type="hidden" name="google_token" id="google-token-input">
-            <input type="hidden" name="google_session_id" id="google-session-input">
-            <input type="hidden" name="pages" value="auto">
-            <input type="hidden" name="style" value="editorial_luxury">
-            <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
-            <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
-            <input type="hidden" name="title" value="Magazine">
-            <input type="hidden" name="subtitle" value="">
-            <input type="hidden" name="dedication" value="">
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
-                <p class="form-note" id="form-note">Your PDF will download when it's ready.</p>
+        <div class="status-bar" id="google-status-panel">
+            <div class="status-row">
+                <span class="status-label">Status</span>
+                <span class="status-value" id="google-status">Your magazine is waiting.</span>
             </div>
-
-            <div class="progress-wrap" id="progress-wrap" hidden>
-                <div class="progress-track">
-                    <div class="progress-fill" id="progress-fill"></div>
+            <p class="status-detail" id="google-detail">Select your photos in Google Photos. Once you've picked the moments, we'll handle the rest.</p>
+            <div class="status-metrics">
+                <div class="metric">
+                    <span class="metric-num" id="selected-total">0</span>
+                    <span class="metric-label">Selected</span>
                 </div>
-                <p class="progress-label" id="progress-label"></p>
+                <div class="metric">
+                    <span class="metric-num" id="estimated-pages">0</span>
+                    <span class="metric-label">Pages</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-num metric-flow" id="flow-state">Waiting</span>
+                    <span class="metric-label">Flow</span>
+                </div>
             </div>
-        </form>
+        </div>
+
+        <div class="generate-panel" id="generate-panel" hidden>
+            <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
+                <input type="hidden" name="google_token" id="google-token-input">
+                <input type="hidden" name="google_session_id" id="google-session-input">
+                <input type="hidden" name="pages" value="auto">
+                <input type="hidden" name="style" value="editorial_luxury">
+                <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
+                <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
+                <input type="hidden" name="title" value="Magazine">
+                <input type="hidden" name="subtitle" value="">
+                <input type="hidden" name="dedication" value="">
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
+                    <p class="form-note" id="form-note">Your PDF will download when it's ready.</p>
+                </div>
+
+                <div class="progress-wrap" id="progress-wrap" hidden>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p class="progress-label" id="progress-label"></p>
+                </div>
+            </form>
+        </div>
     </div>
 </section>
 {% endblock %}
