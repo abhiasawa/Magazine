@@ -6,48 +6,49 @@
     <title>{{ title | default('Magazine') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="page-{{ active_page | default('studio') }}">
     <div class="site-bg"></div>
-    <div class="site-noise"></div>
-    <header class="site-header">
-        <div class="header-inner">
-            <div class="header-copy">
-                <p class="eyebrow">Editorial Magazine Studio</p>
-                <h1>Editorial Print Studio</h1>
+    <div class="site-grain"></div>
+
+    <header class="masthead-wrap">
+        <div class="masthead">
+            <a href="{{ url_for('import_screen') }}" class="wordmark" aria-label="Magazine home">
+                <span class="wordmark-title">Magazine</span>
+                <span class="wordmark-note">Editorial print studio</span>
+            </a>
+
+            <nav class="progress-nav" aria-label="Studio progress">
+                <a href="{{ url_for('import_screen') }}" class="progress-link {{ 'active' if active_page == 'import' else '' }}">
+                    <span class="progress-index">01</span>
+                    <span class="progress-label">Import</span>
+                </a>
+                <a href="{{ url_for('review_candidates') }}" class="progress-link {{ 'active' if active_page in ['review', 'others'] else '' }}">
+                    <span class="progress-index">02</span>
+                    <span class="progress-label">Select</span>
+                </a>
+                <a href="{{ url_for('summary') }}" class="progress-link {{ 'active' if active_page == 'summary' else '' }}">
+                    <span class="progress-index">03</span>
+                    <span class="progress-label">Generate</span>
+                </a>
+            </nav>
+
+            {% if counts %}
+            <div class="masthead-tally" aria-label="Project counts">
+                <span><strong data-count="total">{{ counts.total }}</strong> imported</span>
+                <span><strong data-count="approved">{{ counts.approved }}</strong> selected</span>
+                <span><strong data-count="hero">{{ counts.hero }}</strong> hero</span>
             </div>
-            <p class="tagline">Import, curate, and export a refined issue for print.</p>
+            {% endif %}
         </div>
     </header>
 
-    <nav class="site-nav site-steps">
-        <a href="{{ url_for('import_screen') }}" class="step-link {{ 'active' if active_page == 'import' }}">
-            <span class="step-index">1</span>
-            <span class="step-copy">
-                <strong>Import</strong>
-                <span>Bring photos in</span>
-            </span>
-        </a>
-        <a href="{{ url_for('review_candidates') }}" class="step-link {{ 'active' if active_page in ['review', 'others'] }}">
-            <span class="step-index">2</span>
-            <span class="step-copy">
-                <strong>Review</strong>
-                <span>Choose the keepers</span>
-            </span>
-        </a>
-        <a href="{{ url_for('summary') }}" class="step-link {{ 'active' if active_page == 'summary' }}">
-            <span class="step-index">3</span>
-            <span class="step-copy">
-                <strong>Generate</strong>
-                <span>Set story and export</span>
-            </span>
-        </a>
-    </nav>
-
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="message message-{{ category }}">{{ message }}</div>
-            {% endfor %}
+            <section class="flash-stack">
+                {% for category, message in messages %}
+                    <div class="message message-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </section>
         {% endif %}
     {% endwith %}
 
@@ -60,8 +61,8 @@
         <img id="lightbox-img" src="" alt="Full size photo">
     </div>
 
-    <footer>
-        <p>Crafted for heirloom-quality print magazines.</p>
+    <footer class="site-footer">
+        <p>Built for print-first keepsake magazines.</p>
     </footer>
 
     <script>
@@ -80,6 +81,10 @@
                 if (!card) return;
                 card.classList.remove('approved', 'rejected', 'pending');
                 card.classList.add(data.status);
+                const statusBadge = card.querySelector('[data-status-label]');
+                if (statusBadge) {
+                    statusBadge.textContent = data.status;
+                }
                 updateCounts();
             });
         }
@@ -98,7 +103,11 @@
                 card.classList.toggle('hero', data.hero_pin);
                 const pinBtn = card.querySelector('.pin-btn');
                 if (pinBtn) {
-                    pinBtn.textContent = data.hero_pin ? '★ Hero' : '☆ Hero';
+                    pinBtn.textContent = data.hero_pin ? 'Hero pinned' : 'Pin hero';
+                }
+                const heroBadge = card.querySelector('[data-hero-label]');
+                if (heroBadge) {
+                    heroBadge.hidden = !data.hero_pin;
                 }
                 updateCounts();
             });

@@ -1,100 +1,128 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="panel summary-container">
-    <div class="section-heading">
-        <p class="eyebrow">Step 3</p>
-        <h2>Your Editorial Build</h2>
-        <p class="subtitle">Set the title, pacing, and export options, then generate the issue.</p>
-    </div>
+<section class="studio-layout summary-layout">
+    <aside class="stage-rail stage-rail-sticky">
+        <p class="section-kicker">Step 03</p>
+        <h1 class="stage-title">Shape the issue.</h1>
+        <p class="stage-copy">Keep the controls focused: title, subtitle, dedication, then generate the print-ready PDF. Advanced pacing stays tucked away unless you need it.</p>
 
-    <div class="summary-stats">
-        <div class="summary-stat">
-            <span class="number">{{ counts.approved }}</span>
-            <span class="label">Approved Photos</span>
+        <dl class="metric-list">
+            <div class="metric-item">
+                <dt>Selected</dt>
+                <dd>{{ counts.approved }}</dd>
+            </div>
+            <div class="metric-item">
+                <dt>Estimated pages</dt>
+                <dd id="estimated-pages">{{ estimated_pages }}</dd>
+            </div>
+            <div class="metric-item">
+                <dt>Hero pins</dt>
+                <dd>{{ counts.hero }}</dd>
+            </div>
+        </dl>
+
+        <div class="rail-note">
+            <p class="rail-note-label">Output</p>
+            <p class="rail-note-copy">The page count stays dynamic. More approved frames produce a longer issue without imposing a hard photo limit.</p>
         </div>
-        <div class="summary-stat">
-            <span class="number" id="estimated-pages">{{ estimated_pages }}</span>
-            <span class="label">Estimated Pages</span>
-        </div>
-        <div class="summary-stat">
-            <span class="number">{{ counts.hero }}</span>
-            <span class="label">Hero Pins</span>
-        </div>
-    </div>
+    </aside>
 
-    <div class="generate-section">
-        <h3>Story & Layout Settings</h3>
-        <form action="/generate" method="POST" id="generate-form">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="title">Magazine Title</label>
-                    <input type="text" id="title" name="title" value="{{ story_config.title }}">
+    <div class="stage-surface">
+        <article class="form-sheet">
+            <div class="surface-head compact-head">
+                <div>
+                    <p class="surface-kicker">Issue settings</p>
+                    <h2 class="surface-title">Define the cover and export.</h2>
                 </div>
-                <div class="form-group">
-                    <label for="subtitle">Subtitle</label>
-                    <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}">
-                </div>
+                <p class="surface-copy">Advanced layout controls are available, but hidden by default so this page stays clear.</p>
             </div>
 
-            <div class="form-group">
-                <label for="dedication">Dedication</label>
-                <textarea id="dedication" name="dedication">{{ story_config.dedication }}</textarea>
-            </div>
+            <form action="/generate" method="POST" id="generate-form" class="generate-form">
+                <div class="form-grid two-up">
+                    <label class="field-group" for="title">
+                        <span>Magazine title</span>
+                        <input type="text" id="title" name="title" value="{{ story_config.title }}">
+                    </label>
+                    <label class="field-group" for="subtitle">
+                        <span>Subtitle</span>
+                        <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}">
+                    </label>
+                </div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="style">Style</label>
-                    <select id="style" name="style">
-                        <option value="editorial_luxury" {{ 'selected' if story_config.style == 'editorial_luxury' else '' }}>Editorial Luxury</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="pages">Page Mode</label>
-                    <select id="pages" name="pages">
-                        <option value="auto" selected>Auto (dynamic)</option>
-                    </select>
-                </div>
-            </div>
+                <label class="field-group" for="dedication">
+                    <span>Dedication</span>
+                    <textarea id="dedication" name="dedication">{{ story_config.dedication }}</textarea>
+                </label>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="min_pages">Min Pages</label>
-                    <input type="number" id="min_pages" name="min_pages" value="{{ story_config.pagination.min_pages }}" min="12" step="4">
-                </div>
-                <div class="form-group">
-                    <label for="max_pages">Max Pages</label>
-                    <input type="number" id="max_pages" name="max_pages" value="{{ story_config.pagination.max_pages }}" min="20" step="4">
-                </div>
-                <div class="form-group">
-                    <label for="density">Density (photos/page)</label>
-                    <input type="number" id="density" name="density" value="{{ story_config.pagination.density }}" min="1.0" max="2.5" step="0.1">
-                </div>
-                <div class="form-group">
-                    <label for="page_step">Page Step</label>
-                    <input type="number" id="page_step" name="page_step" value="{{ story_config.pagination.page_step }}" min="2" step="2">
-                </div>
-            </div>
+                <details class="advanced-panel">
+                    <summary>Advanced editorial pacing</summary>
+                    <div class="advanced-grid">
+                        <label class="field-group" for="style">
+                            <span>Style</span>
+                            <select id="style" name="style">
+                                <option value="editorial_luxury" {{ 'selected' if story_config.style == 'editorial_luxury' else '' }}>Editorial Luxury</option>
+                            </select>
+                        </label>
+                        <label class="field-group" for="pages">
+                            <span>Page mode</span>
+                            <select id="pages" name="pages">
+                                <option value="auto" selected>Auto (dynamic)</option>
+                            </select>
+                        </label>
+                        <label class="field-group" for="min_pages">
+                            <span>Minimum pages</span>
+                            <input type="number" id="min_pages" name="min_pages" value="{{ story_config.pagination.min_pages }}" min="12" step="4">
+                        </label>
+                        <label class="field-group" for="max_pages">
+                            <span>Maximum pages</span>
+                            <input type="number" id="max_pages" name="max_pages" value="{{ story_config.pagination.max_pages }}" min="20" step="4">
+                        </label>
+                        <label class="field-group" for="density">
+                            <span>Density</span>
+                            <input type="number" id="density" name="density" value="{{ story_config.pagination.density }}" min="1.0" max="2.5" step="0.1">
+                        </label>
+                        <label class="field-group" for="page_step">
+                            <span>Page step</span>
+                            <input type="number" id="page_step" name="page_step" value="{{ story_config.pagination.page_step }}" min="2" step="2">
+                        </label>
+                    </div>
 
-            <label class="check-row"><input type="checkbox" name="run_preflight" checked> Run preflight checks and generate proof PNGs</label>
+                    <label class="check-row"><input type="checkbox" name="run_preflight" checked> Run preflight checks and proof renders</label>
+                    <button type="button" class="btn btn-ghost" id="refresh-estimate">Refresh estimate</button>
+                </details>
 
-            <div class="generate-actions">
-                <button type="button" class="btn" id="refresh-estimate">Refresh Estimate</button>
-                <button type="submit" class="btn btn-success">Generate Magazine PDF</button>
-            </div>
-        </form>
-    </div>
-
-    {% if approved_photos %}
-    <h3 class="approved-title">Selected Frames</h3>
-    <div class="photo-grid compact-grid">
-        {% for photo in approved_photos %}
-        <article class="photo-card approved {{ 'hero' if photo.hero_pin else '' }}" data-photo-id="{{ photo.id }}">
-            <img src="/thumbnail/{{ photo.id }}" alt="Photo {{ photo.id }}" loading="lazy" onclick="openLightbox('/original/{{ photo.id }}')">
+                <div class="generate-actions">
+                    <button type="submit" class="btn btn-primary btn-wide">Generate magazine PDF</button>
+                </div>
+            </form>
         </article>
-        {% endfor %}
+
+        {% if approved_photos %}
+        <article class="preview-sheet">
+            <div class="surface-head compact-head">
+                <div>
+                    <p class="surface-kicker">Selection preview</p>
+                    <h2 class="surface-title">Your chosen frames.</h2>
+                </div>
+            </div>
+            <div class="photo-grid compact-grid">
+                {% for photo in approved_photos %}
+                <article class="photo-card approved {{ 'hero' if photo.hero_pin else '' }}" data-photo-id="{{ photo.id }}">
+                    <div class="photo-frame simple-frame">
+                        <img src="/thumbnail/{{ photo.id }}" alt="Photo {{ photo.id }}" loading="lazy" onclick="openLightbox('/original/{{ photo.id }}')">
+                        <div class="photo-badges">
+                            {% if photo.hero_pin %}
+                            <span class="hero-pill">Hero</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </article>
+        {% endif %}
     </div>
-    {% endif %}
 </section>
 {% endblock %}
 
@@ -120,9 +148,9 @@
         }
     }
 
-    document.getElementById('refresh-estimate').addEventListener('click', refreshEstimate);
+    document.getElementById('refresh-estimate')?.addEventListener('click', refreshEstimate);
     ['density', 'min_pages', 'max_pages', 'page_step'].forEach(id => {
-        document.getElementById(id).addEventListener('change', refreshEstimate);
+        document.getElementById(id)?.addEventListener('change', refreshEstimate);
     });
 </script>
 {% endblock %}

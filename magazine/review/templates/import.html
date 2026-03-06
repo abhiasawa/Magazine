@@ -1,88 +1,81 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="panel import-stage">
-    <div class="section-heading">
-        <p class="eyebrow">Step 1</p>
-        <h3>Choose a photo source.</h3>
-        <p class="subtitle compact-subtitle">Bring in a folder from your computer or connect Google Photos. Once the images land here, move straight into review.</p>
-    </div>
+<section class="studio-layout">
+    <aside class="stage-rail">
+        <p class="section-kicker">Step 01</p>
+        <h1 class="stage-title">Bring the story in.</h1>
+        <p class="stage-copy">Start with one source. Once the images arrive here, the next screen becomes a clean shortlist for the final issue.</p>
 
-    <div class="step-summary">
-        <div class="step-summary-item"><span class="step-summary-number" data-count="total">{{ counts.total }}</span><span class="step-summary-label">Imported</span></div>
-        <div class="step-summary-item"><span class="step-summary-number" data-count="approved">{{ counts.approved }}</span><span class="step-summary-label">Approved</span></div>
-        <div class="step-summary-item"><span class="step-summary-number" data-count="hero">{{ counts.hero }}</span><span class="step-summary-label">Hero Pins</span></div>
-    </div>
-
-    <div class="import-grid import-grid-premium">
-        <article class="import-card import-card-local">
-            <div class="import-card-header">
-                <p class="source-kicker">From This Computer</p>
-                <h4>Upload a folder or selected files</h4>
+        <dl class="metric-list">
+            <div class="metric-item">
+                <dt>Imported</dt>
+                <dd data-count="total">{{ counts.total }}</dd>
             </div>
-            <p class="import-copy">Import from your machine. Duplicate shots are skipped automatically.</p>
+            <div class="metric-item">
+                <dt>Selected</dt>
+                <dd data-count="approved">{{ counts.approved }}</dd>
+            </div>
+            <div class="metric-item">
+                <dt>Hero pins</dt>
+                <dd data-count="hero">{{ counts.hero }}</dd>
+            </div>
+        </dl>
+
+        <div class="rail-note">
+            <p class="rail-note-label">Flow</p>
+            <p class="rail-note-copy">Import first. Edit the shortlist next. Generate the print-ready magazine last.</p>
+        </div>
+
+        <a href="{{ url_for('review_candidates') }}" class="btn btn-primary btn-wide {{ '' if counts.total > 0 else 'btn-disabled-link' }}">Continue to selection</a>
+    </aside>
+
+    <div class="stage-surface">
+        <article class="source-sheet source-sheet-feature">
+            <div class="source-heading">
+                <p class="source-kicker">Computer</p>
+                <h2>Upload a folder or a handpicked set.</h2>
+                <p class="source-summary">Use local upload when you want the fastest path. Duplicate frames are skipped automatically.</p>
+            </div>
 
             <form id="local-upload-form" class="upload-form" enctype="multipart/form-data">
-                <label class="dropzone dropzone-luxury" for="photos-input">
+                <label class="dropzone" for="photos-input">
                     <input type="file" id="photos-input" name="photos" accept="image/*" multiple webkitdirectory directory>
-                    <span class="dropzone-icon">Local</span>
-                    <strong>Drop files here</strong>
-                    <span>Or select an entire folder</span>
+                    <span class="dropzone-tag">Local import</span>
+                    <strong>Drop images here</strong>
+                    <span>Select files or an entire folder from your computer.</span>
                 </label>
-                <button type="submit" class="btn btn-primary btn-wide">Import Local Photos</button>
+                <button type="submit" class="btn btn-primary">Import local photos</button>
             </form>
 
-            <div class="import-result import-result-prominent" id="local-result"></div>
+            <div class="import-result" id="local-result"></div>
         </article>
 
-        <article class="import-card import-card-google {{ '' if google_configured else 'import-card-disabled' }}">
-            <div class="import-card-header">
-                <p class="source-kicker">From Google Photos</p>
-                <h4>Connect your library in one browser flow</h4>
+        <article class="source-sheet {{ '' if google_configured else 'source-sheet-muted' }}">
+            <div class="source-heading">
+                <p class="source-kicker">Google Photos</p>
+                <h2>Connect your library in one browser flow.</h2>
+                <p class="source-summary">{{ google_status_message }}</p>
             </div>
-            <p class="import-copy">{{ google_status_message }}</p>
 
-            <div class="source-steps">
-                <div class="source-step">
-                    <span>1</span>
-                    <p>Open the Google sign-in window.</p>
-                </div>
-                <div class="source-step">
-                    <span>2</span>
-                    <p>Choose the photos you want in the magazine.</p>
-                </div>
-                <div class="source-step">
-                    <span>3</span>
-                    <p>Come back here while everything imports automatically.</p>
-                </div>
-            </div>
+            <ol class="source-sequence">
+                <li>Open Google sign-in.</li>
+                <li>Choose the photos for this issue.</li>
+                <li>Return here while the import finishes.</li>
+            </ol>
 
             {% if google_configured %}
-            <button id="google-start" class="btn btn-gold btn-wide">Connect Google Photos</button>
+            <button id="google-start" class="btn btn-secondary">Connect Google Photos</button>
             {% else %}
-            <button class="btn btn-muted btn-wide" disabled>Google Photos Not Available Yet</button>
+            <button class="btn btn-secondary" disabled>Google Photos unavailable</button>
             {% endif %}
 
-            <div class="import-result import-result-prominent" id="google-result">
+            <div class="import-result" id="google-result">
                 {% if not google_configured %}
-                This demo can still be tried right now with local upload.
+                Use local upload until Google Photos is configured for this deployment.
                 {% endif %}
             </div>
         </article>
-    </div>
-
-    <div class="step-footer">
-        <div>
-            <p class="step-footer-label">Next</p>
-            <p class="step-footer-copy">
-                {% if counts.total > 0 %}
-                Continue into review once the imports are finished.
-                {% else %}
-                Start with one source. You can always return here later to add more.
-                {% endif %}
-            </p>
-        </div>
-        <a href="{{ url_for('review_candidates') }}" class="btn btn-primary {{ '' if counts.total > 0 else 'btn-disabled-link' }}">Continue to Review</a>
     </div>
 </section>
 {% endblock %}
@@ -103,7 +96,7 @@
                 const res = await fetch('/api/import/local', {method: 'POST', body: formData});
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'Import failed');
-                localResult.textContent = `Imported ${data.imported} of ${data.total} files. ${data.skipped} duplicates were skipped automatically.`;
+                localResult.textContent = `Imported ${data.imported} of ${data.total} files. ${data.skipped} duplicates were skipped.`;
                 updateCounts();
             } catch (err) {
                 localResult.textContent = err.message;
@@ -134,10 +127,10 @@
         if (Array.isArray(data.events) && data.events.length) {
             const last = data.events[data.events.length - 1];
             if (last && last.stage) {
-                details.push(`Stage: ${last.stage.replaceAll('_', ' ')}`);
+                details.push(`Stage ${last.stage.replaceAll('_', ' ')}`);
             }
         }
-        googleResult.textContent = details.join(' • ');
+        googleResult.textContent = details.join(' · ');
 
         if (data.status === 'done' || data.status === 'error') {
             clearInterval(googlePollInterval);
@@ -157,7 +150,7 @@
             googleJobId = data.job_id;
             const popup = window.open(data.auth_url, '_blank', 'width=980,height=760');
             if (!popup) {
-                googleResult.textContent = 'Your browser blocked the Google window. Please allow pop-ups for this site and try again.';
+                googleResult.textContent = 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
                 return;
             }
             googleResult.textContent = 'Waiting for Google approval...';
