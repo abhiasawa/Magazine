@@ -37,35 +37,32 @@
             </div>
         </div>
     </div>
-</section>
 
-<section class="generate-panel" id="generate-panel" hidden>
-    <h2 class="generate-heading">Ready to build.</h2>
-    <p class="generate-sub">One click, print-ready editorial layout.</p>
+    <div class="generate-panel" id="generate-panel" hidden>
+        <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
+            <input type="hidden" name="google_token" id="google-token-input">
+            <input type="hidden" name="google_session_id" id="google-session-input">
+            <input type="hidden" name="pages" value="auto">
+            <input type="hidden" name="style" value="editorial_luxury">
+            <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
+            <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
+            <input type="hidden" name="title" value="Magazine">
+            <input type="hidden" name="subtitle" value="">
+            <input type="hidden" name="dedication" value="">
 
-    <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
-        <input type="hidden" name="google_token" id="google-token-input">
-        <input type="hidden" name="google_session_id" id="google-session-input">
-        <input type="hidden" name="pages" value="auto">
-        <input type="hidden" name="style" value="editorial_luxury">
-        <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
-        <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
-        <input type="hidden" name="title" value="Magazine">
-        <input type="hidden" name="subtitle" value="">
-        <input type="hidden" name="dedication" value="">
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
-            <p class="form-note" id="form-note">Your PDF will download when it's ready. Print it, gift it, keep it.</p>
-        </div>
-
-        <div class="progress-wrap" id="progress-wrap" hidden>
-            <div class="progress-track">
-                <div class="progress-fill" id="progress-fill"></div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
+                <p class="form-note" id="form-note">Your PDF will download when it's ready.</p>
             </div>
-            <p class="progress-label" id="progress-label"></p>
-        </div>
-    </form>
+
+            <div class="progress-wrap" id="progress-wrap" hidden>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <p class="progress-label" id="progress-label"></p>
+            </div>
+        </form>
+    </div>
 </section>
 {% endblock %}
 
@@ -86,6 +83,7 @@
     const storageKey = 'magazineGoogleSession';
     let pickerPopup = null;
     let pollTimer = null;
+    let autoGenerateArmed = false;
 
     function loadSession() {
         try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); }
@@ -130,6 +128,104 @@
         generatePanel.hidden = session.status !== 'ready';
     }
 
+    /* ── Progress + Generation ── */
+
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressFill = document.getElementById('progress-fill');
+    const progressLabel = document.getElementById('progress-label');
+    const formNote = document.getElementById('form-note');
+
+    const stages = [
+        { pct: 5,   label: 'Downloading photos from Google Photos' },
+        { pct: 35,  label: 'Downloading photos from Google Photos' },
+        { pct: 50,  label: 'Building magazine layout' },
+        { pct: 65,  label: 'Rendering PDF pages' },
+        { pct: 85,  label: 'Rendering PDF pages' },
+        { pct: 95,  label: 'Finalizing PDF' },
+    ];
+
+    function setProgress(pct, label) {
+        progressFill.style.width = pct + '%';
+        if (label) progressLabel.textContent = label;
+    }
+
+    async function startGeneration() {
+        generatePanel.hidden = false;
+        generateButton.disabled = true;
+        generateButton.hidden = true;
+        formNote.hidden = true;
+        progressWrap.hidden = false;
+        setProgress(0, 'Starting generation');
+
+        let stageIdx = 0;
+        const stageTimer = setInterval(() => {
+            if (stageIdx < stages.length) {
+                setProgress(stages[stageIdx].pct, stages[stageIdx].label);
+                stageIdx++;
+            }
+        }, 3000);
+
+        try {
+            const res = await fetch(generateForm.action, {
+                method: 'POST',
+                body: new FormData(generateForm),
+            });
+
+            clearInterval(stageTimer);
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || 'Generation failed');
+            }
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/pdf')) {
+                setProgress(100, 'Done — downloading PDF');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Magazine.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                setTimeout(() => {
+                    progressWrap.hidden = true;
+                    generateButton.hidden = false;
+                    generateButton.disabled = false;
+                    formNote.hidden = false;
+                    setProgress(0, '');
+                }, 2000);
+            } else {
+                setProgress(0, '');
+                progressWrap.hidden = true;
+                generateButton.hidden = false;
+                generateButton.disabled = false;
+                formNote.hidden = false;
+                formNote.textContent = 'Generation failed. Check the error above and try again.';
+                window.location.reload();
+            }
+        } catch (err) {
+            clearInterval(stageTimer);
+            setProgress(0, '');
+            progressWrap.hidden = true;
+            generateButton.hidden = false;
+            generateButton.disabled = false;
+            formNote.hidden = false;
+            formNote.textContent = 'Error: ' + (err.message || 'Generation failed');
+        }
+    }
+
+    if (generateForm && generateButton) {
+        generateForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            startGeneration();
+        });
+    }
+
+    /* ── Google Photos Picker Flow ── */
+
     async function pollSelectionStatus() {
         const session = loadSession();
         if (!session?.token || !session?.sessionId) { renderSession(null); return; }
@@ -154,7 +250,7 @@
             session.status = data.status;
             session.message = data.message;
             session.detail = data.status === 'ready'
-                ? 'Selection ready. Add the cover line and generate.'
+                ? 'Selection complete. Generating your magazine now.'
                 : 'Keep the Google Photos window open until you finish selecting.';
             session.selectedTotal = data.selected_total || 0;
             saveSession(session);
@@ -172,6 +268,10 @@
                 } catch (err) { popupClosed = false; }
                 window.focus();
                 if (!popupClosed) showPickerNotification();
+                if (autoGenerateArmed) {
+                    autoGenerateArmed = false;
+                    startGeneration();
+                }
             }
         } catch (err) {
             session.status = 'error';
@@ -209,13 +309,14 @@
         if (event.origin !== window.location.origin) return;
         const data = event.data || {};
         if (data.type !== 'magazine-google-picker-ready') return;
+        autoGenerateArmed = true;
         saveSession({
             state: data.state || '',
             token: data.token || '',
             sessionId: data.sessionId || '',
             status: 'waiting_selection',
             message: 'Choose the final photos in Google Photos.',
-            detail: 'Once you press Done there, generation unlocks automatically.',
+            detail: 'Once you press Done there, generation starts automatically.',
             selectedTotal: 0,
         });
         renderSession(loadSession());
@@ -238,6 +339,7 @@
     if (googleReset) {
         googleReset.addEventListener('click', () => {
             if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            autoGenerateArmed = false;
             try {
                 if (pickerPopup && !pickerPopup.closed) pickerPopup.close();
             } catch (err) {
@@ -247,98 +349,6 @@
             renderSession(null);
             const existingToast = document.getElementById('picker-toast');
             if (existingToast) existingToast.remove();
-        });
-    }
-
-    const progressWrap = document.getElementById('progress-wrap');
-    const progressFill = document.getElementById('progress-fill');
-    const progressLabel = document.getElementById('progress-label');
-    const formNote = document.getElementById('form-note');
-
-    const stages = [
-        { pct: 5,   label: 'Downloading photos from Google Photos' },
-        { pct: 35,  label: 'Downloading photos from Google Photos' },
-        { pct: 50,  label: 'Building magazine layout' },
-        { pct: 65,  label: 'Rendering PDF pages' },
-        { pct: 85,  label: 'Rendering PDF pages' },
-        { pct: 95,  label: 'Finalizing PDF' },
-    ];
-
-    function setProgress(pct, label) {
-        progressFill.style.width = pct + '%';
-        if (label) progressLabel.textContent = label;
-    }
-
-    if (generateForm && generateButton) {
-        generateForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            generateButton.disabled = true;
-            generateButton.hidden = true;
-            formNote.hidden = true;
-            progressWrap.hidden = false;
-            setProgress(0, 'Starting generation');
-
-            // Advance through stages on a timer
-            let stageIdx = 0;
-            const stageTimer = setInterval(() => {
-                if (stageIdx < stages.length) {
-                    setProgress(stages[stageIdx].pct, stages[stageIdx].label);
-                    stageIdx++;
-                }
-            }, 3000);
-
-            try {
-                const res = await fetch(generateForm.action, {
-                    method: 'POST',
-                    body: new FormData(generateForm),
-                });
-
-                clearInterval(stageTimer);
-
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || 'Generation failed');
-                }
-
-                const contentType = res.headers.get('content-type') || '';
-                if (contentType.includes('application/pdf')) {
-                    setProgress(100, 'Done — downloading PDF');
-                    const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'Magazine.pdf';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                    setTimeout(() => {
-                        progressWrap.hidden = true;
-                        generateButton.hidden = false;
-                        generateButton.disabled = false;
-                        formNote.hidden = false;
-                        setProgress(0, '');
-                    }, 2000);
-                } else {
-                    // Server redirected back with flash error (HTML response)
-                    setProgress(0, '');
-                    progressWrap.hidden = true;
-                    generateButton.hidden = false;
-                    generateButton.disabled = false;
-                    formNote.hidden = false;
-                    formNote.textContent = 'Generation failed. Check the error above and try again.';
-                    // Reload to show flash message
-                    window.location.reload();
-                }
-            } catch (err) {
-                clearInterval(stageTimer);
-                setProgress(0, '');
-                progressWrap.hidden = true;
-                generateButton.hidden = false;
-                generateButton.disabled = false;
-                formNote.hidden = false;
-                formNote.textContent = 'Error: ' + (err.message || 'Generation failed');
-            }
         });
     }
 
