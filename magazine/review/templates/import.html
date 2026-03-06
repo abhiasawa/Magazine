@@ -4,8 +4,8 @@
 <section class="panel import-stage">
     <div class="section-heading">
         <p class="eyebrow">Step 1</p>
-        <h3>Start by importing your photos.</h3>
-        <p class="subtitle compact-subtitle">Choose one source, wait for the photos to land here, then move to review.</p>
+        <h3>Choose a photo source.</h3>
+        <p class="subtitle compact-subtitle">Bring in a folder from your computer or connect Google Photos. Once the images land here, move straight into review.</p>
     </div>
 
     <div class="step-summary">
@@ -18,16 +18,16 @@
         <article class="import-card import-card-local">
             <div class="import-card-header">
                 <p class="source-kicker">From This Computer</p>
-                <h4>Upload from your laptop or a full folder</h4>
+                <h4>Upload a folder or selected files</h4>
             </div>
-            <p class="import-copy">Choose files or a folder. Duplicate shots are skipped automatically.</p>
+            <p class="import-copy">Import from your machine. Duplicate shots are skipped automatically.</p>
 
             <form id="local-upload-form" class="upload-form" enctype="multipart/form-data">
                 <label class="dropzone dropzone-luxury" for="photos-input">
                     <input type="file" id="photos-input" name="photos" accept="image/*" multiple webkitdirectory directory>
-                    <span class="dropzone-icon">+</span>
-                    <strong>Drop photos here</strong>
-                    <span>Select files or an entire folder</span>
+                    <span class="dropzone-icon">Local</span>
+                    <strong>Drop files here</strong>
+                    <span>Or select an entire folder</span>
                 </label>
                 <button type="submit" class="btn btn-primary btn-wide">Import Local Photos</button>
             </form>
@@ -76,9 +76,9 @@
             <p class="step-footer-label">Next</p>
             <p class="step-footer-copy">
                 {% if counts.total > 0 %}
-                Move into review once your photos have finished importing.
+                Continue into review once the imports are finished.
                 {% else %}
-                Start with one source. You can come back here any time to add more photos.
+                Start with one source. You can always return here later to add more.
                 {% endif %}
             </p>
         </div>
