@@ -148,8 +148,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import Color
 
-    W = 210 * mm
-    H = 297 * mm
+    W = 297 * mm
+    H = 210 * mm
     MARGIN = 15 * mm
 
     bg_dark = Color(0.047, 0.043, 0.039)       # #0c0b0a
