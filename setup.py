@@ -18,12 +18,12 @@ setup(
         "requests",
         "tqdm",
         "pypdf",
+        "reportlab",
     ],
     extras_require={
         "local": [
             "deepface",
             "tf-keras",
-            "weasyprint>=62",
         ],
     },
     entry_points={
