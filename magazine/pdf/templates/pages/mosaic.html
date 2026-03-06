@@ -1,0 +1,7 @@
+<div class="page page-mosaic">
+    {% for photo in page.photos[:4] %}
+    <div class="mosaic-cell">
+        <img src="{{ photo.print_path }}">
+    </div>
+    {% endfor %}
+</div>

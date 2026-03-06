@@ -1,0 +1,15 @@
+<div class="page page-editorial">
+    {% if page.photos %}
+    <div class="editorial-photo">
+        <img src="{{ page.photos[0].print_path }}">
+    </div>
+    {% endif %}
+    <div class="editorial-sidebar">
+        {% if page.quote %}
+        <div class="sidebar-rule"></div>
+        <p class="sidebar-quote">&ldquo;{{ page.quote.text }}&rdquo;</p>
+        <p class="sidebar-author">&mdash; {{ page.quote.author }}</p>
+        {% endif %}
+    </div>
+    <div class="page-number">{{ page.page_number }}</div>
+</div>

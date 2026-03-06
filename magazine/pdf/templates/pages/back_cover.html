@@ -1,10 +1,13 @@
 <div class="page page-back-cover">
     <div class="back-content">
         {% if page.photos %}
-        <img class="back-photo" src="{{ page.photos[0].print_path }}">
+        <div class="back-photo-frame">
+            <img src="{{ page.photos[0].print_path }}">
+        </div>
         {% endif %}
+        <div class="back-rule"></div>
         <h2 class="back-title">{{ page.title }}</h2>
         <p class="back-message">Forever &amp; Always</p>
-        <div class="back-heart">&hearts;</div>
+        <div class="back-accent"></div>
     </div>
 </div>

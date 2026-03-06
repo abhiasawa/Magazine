@@ -1,11 +1,13 @@
 <div class="page page-cover">
-    {% if page.photos %}
-    <img class="cover-image" src="{{ page.photos[0].print_path }}">
-    {% endif %}
-    <div class="cover-overlay">
-        <div class="cover-line"></div>
+    <div class="cover-photo">
+        {% if page.photos %}
+        <img src="{{ page.photos[0].print_path }}">
+        {% endif %}
+    </div>
+    <div class="tape tape-h cover-tape-1"></div>
+    <div class="tape tape-h cover-tape-2"></div>
+    <div class="cover-text">
         <h1 class="cover-title">{{ page.title }}</h1>
-        <div class="cover-line"></div>
         <p class="cover-subtitle">{{ page.subtitle }}</p>
     </div>
 </div>

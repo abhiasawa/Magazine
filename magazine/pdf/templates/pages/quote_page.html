@@ -1,10 +1,11 @@
 <div class="page page-quote">
-    <div class="quote-content">
-        <div class="quote-mark">&ldquo;</div>
+    <div class="tape tape-h quote-tape"></div>
+    <div class="quote-card">
+        <span class="quote-mark">&ldquo;</span>
         {% if page.quote %}
         <p class="quote-text">{{ page.quote.text }}</p>
-        <img class="quote-divider" src="{{ ornament_divider }}">
-        <p class="quote-author">&mdash; {{ page.quote.author }}</p>
+        <div class="quote-rule"></div>
+        <p class="quote-author">{{ page.quote.author }}</p>
         {% endif %}
         {% if page.section_title %}
         <p class="section-name">{{ page.section_title }}</p>

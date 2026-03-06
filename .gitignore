@@ -1,4 +1,9 @@
-workspace/
+workspace/originals/
+workspace/thumbnails/
+workspace/print/
+workspace/photos.json
+workspace/face_results.json
+workspace/review_state.json
 *.pyc
 __pycache__/
 *.egg-info/
