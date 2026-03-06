@@ -36,8 +36,8 @@ class GooglePhotoPicker:
                 "Google OAuth credentials not configured.\n"
                 "1. Create a project at https://console.cloud.google.com\n"
                 "2. Enable the Google Photos Picker API\n"
-                "3. Create OAuth 2.0 credentials\n"
-                "4. Copy .env.example to .env and fill in your credentials"
+                "3. Create OAuth 2.0 credentials for the deployed site\n"
+                "4. Add the credentials to your Vercel project environment variables"
             )
 
         client_config = {
@@ -53,7 +53,7 @@ class GooglePhotoPicker:
         final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
         if not final_redirect_uri:
             raise click.ClickException(
-                "Google redirect URI is missing. Set GOOGLE_REDIRECT_URI or start the flow from the web app."
+                "Google redirect URI is missing. Set GOOGLE_REDIRECT_URI for your deployed site."
             )
 
         client_config["web"]["redirect_uris"] = [final_redirect_uri]

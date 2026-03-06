@@ -193,7 +193,7 @@ def create_app() -> Flask:
             google_status_message=(
                 "Connect your library in a secure Google window, choose your photos, and return here while they sync."
                 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
-                else "Google Photos is not switched on for this demo yet. The site is ready for it, but the Google sign-in keys have not been added on this machine."
+                else "Google Photos is not configured for this deployment yet."
             ),
             google_callback_uri=current_google_callback_uri(),
         )
@@ -271,7 +271,7 @@ def create_app() -> Flask:
             return jsonify(
                 {
                     "success": False,
-                    "error": "Google Photos is not available in this demo yet. The website flow is ready, but the Google sign-in keys have not been added on this machine.",
+                    "error": "Google Photos is not configured for this deployment yet.",
                 }
             ), 400
 
@@ -484,12 +484,5 @@ def create_app() -> Flask:
             flash(f"Error generating magazine: {exc}", "error")
 
         return redirect(url_for("summary"))
-
-    @app.route("/shutdown", methods=["POST"])
-    def shutdown():
-        func = request.environ.get("werkzeug.server.shutdown")
-        if func:
-            func()
-        return "Server shutting down..."
 
     return app
