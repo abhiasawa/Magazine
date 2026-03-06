@@ -101,7 +101,7 @@ def make_print_image(
     focal_point: tuple[float, float] | None = None,
     filename: str | None = None,
 ) -> Path:
-    """Resize image for print at 300 DPI. Covers the target area (crop to fill)."""
+    """Resize image for print at 300 DPI, preserving the full frame."""
     if target_width is None:
         target_width = FULL_BLEED_WIDTH_PX
     if target_height is None:
@@ -114,34 +114,11 @@ def make_print_image(
         img = img.convert("RGB")
     img = _apply_gentle_grade(img)
 
-    # Cover: scale to fill target, then center-crop
-    src_ratio = img.width / img.height
-    target_ratio = target_width / target_height
-
-    if src_ratio > target_ratio:
-        # Image is wider: scale by height, crop width
-        new_height = target_height
-        new_width = int(new_height * src_ratio)
-    else:
-        # Image is taller: scale by width, crop height
-        new_width = target_width
-        new_height = int(new_width / src_ratio)
-
+    scale = min(target_width / img.width, target_height / img.height)
+    scale = min(scale, 1.0)
+    new_width = max(1, int(img.width * scale))
+    new_height = max(1, int(img.height * scale))
     img = img.resize((new_width, new_height), Image.LANCZOS)
-
-    # Focus-aware crop where focal point is normalized (0..1, 0..1).
-    if focal_point:
-        fx = min(max(float(focal_point[0]), 0.0), 1.0)
-        fy = min(max(float(focal_point[1]), 0.0), 1.0)
-        focus_x = int(new_width * fx)
-        focus_y = int(new_height * fy)
-        left = max(0, min(new_width - target_width, focus_x - target_width // 2))
-        top = max(0, min(new_height - target_height, focus_y - target_height // 2))
-    else:
-        left = (new_width - target_width) // 2
-        top = (new_height - target_height) // 2
-
-    img = img.crop((left, top, left + target_width, top + target_height))
 
     name = filename or src.stem
     dest = dest_dir / f"{name}.jpg"

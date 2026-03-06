@@ -83,5 +83,5 @@ DEFAULT_STYLE = "editorial_luxury"
 DEFAULT_PAGINATION = {
     "mode": "auto",
     "density": 1.7,
-    "fixed_pages": 5,
+    "fixed_pages": 3,
 }

@@ -96,7 +96,7 @@ def pick_best_photo(photos: list[dict]) -> dict | None:
 def estimate_page_count(
     photo_count: int,
     density: float = 1.7,
-    fixed_pages: int = 5,
+    fixed_pages: int = 3,
     **_kwargs,
 ) -> int:
     """Estimate page count from selected photos.
@@ -172,7 +172,7 @@ def build_layout(
     style: str = "editorial_luxury",
     pages: str | int = "auto",
     density: float = 1.7,
-    fixed_pages: int = 5,
+    fixed_pages: int = 3,
     **_kwargs,
 ) -> list[PageSpec]:
     """Build dynamic editorial layout from the selected photo set."""
@@ -195,11 +195,10 @@ def build_layout(
 
     _overflow_guard(photo_count=len(photos), target_pages=target_pages)
 
-    cover_photo = pick_best_photo(photos)
-    remaining = [clone_photo(p) for p in photos if p["id"] != cover_photo["id"]]
+    remaining = [clone_photo(p) for p in photos]
     heroes = [p for p in remaining if p.get("hero_pin")]
     regular = [p for p in remaining if not p.get("hero_pin")]
-    reuse_pool = remaining[:] if remaining else [clone_photo(cover_photo)]
+    reuse_pool = remaining[:] if remaining else []
     reuse_idx = [0]
 
     pages_out: list[PageSpec] = []
@@ -209,7 +208,7 @@ def build_layout(
     pages_out.append(
         PageSpec(
             template="cover",
-            photos=[clone_photo(cover_photo)],
+            photos=[],
             title=title,
             subtitle=subtitle,
             page_number=page_num,
@@ -217,35 +216,14 @@ def build_layout(
     )
     page_num += 1
 
-    pages_out.append(
-        PageSpec(
-            template="dedication",
-            dedication=dedication,
-            page_number=page_num,
-        )
-    )
-    page_num += 1
-
-    pages_out.append(
-        PageSpec(
-            template="editorial",
-            photos=_take_n(1, regular, heroes, reuse_pool, reuse_idx, prefer_hero_first=True),
-            section_title="The Beginning",
-            page_number=page_num,
-        )
-    )
-    page_num += 1
-
     # Dynamic body pages
-    body_pages = max(0, target_pages - 5)
+    body_pages = max(0, target_pages - 3)
 
     template_cycle = [
-        "full_bleed",
         "cinematic",
         "editorial",
         "two_photo",
         "three_photo",
-        "photo_quote_overlay",
         "mosaic",
         "collage2",
         "collage3",
@@ -268,14 +246,7 @@ def build_layout(
         "editorial": 1,
     }
 
-    premium_templates = {"full_bleed", "cinematic", "photo_quote_overlay", "editorial"}
-
-    chapter_titles = [
-        "The Beginning",
-        "Growing Together",
-        "Beautiful Moments",
-        "Always & Forever",
-    ]
+    premium_templates = {"full_bleed", "cinematic", "editorial"}
 
     for idx in range(body_pages):
         template = template_cycle[idx % len(template_cycle)]
@@ -293,15 +264,10 @@ def build_layout(
             prefer_hero_first=template in premium_templates,
         )
 
-        section_title = ""
-        if template in {"full_bleed", "cinematic"} and idx % 6 == 0:
-            section_title = chapter_titles[(idx // 6) % len(chapter_titles)]
-
         pages_out.append(
             PageSpec(
                 template=template,
                 photos=page_photos,
-                section_title=section_title,
                 page_number=page_num,
             )
         )
@@ -312,7 +278,6 @@ def build_layout(
         PageSpec(
             template="cinematic",
             photos=_take_n(1, regular, heroes, reuse_pool, reuse_idx, prefer_hero_first=True),
-            section_title="Forever & Always",
             page_number=page_num,
         )
     )

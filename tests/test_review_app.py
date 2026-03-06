@@ -99,7 +99,7 @@ def test_generate_requires_google_selection():
     app = create_app()
     client = app.test_client()
 
-    response = client.post("/generate", data={"title": "Magazine"}, follow_redirects=False)
+    response = client.post("/generate", data={"title": "Maison Folio"}, follow_redirects=False)
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/import")
@@ -109,7 +109,7 @@ def test_generate_runs_google_selection_to_pdf(monkeypatch, tmp_path):
     app = create_app()
     client = app.test_client()
 
-    pdf_path = tmp_path / "Magazine.pdf"
+    pdf_path = tmp_path / "Maison-Folio.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n% test\n")
 
     monkeypatch.setattr(
@@ -131,8 +131,8 @@ def test_generate_runs_google_selection_to_pdf(monkeypatch, tmp_path):
             "pages": "auto",
             "density": "1.7",
         },
+        follow_redirects=False,
     )
 
-    assert response.status_code == 200
-    assert response.mimetype == "application/pdf"
-    assert response.data.startswith(b"%PDF-1.4")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/preview")

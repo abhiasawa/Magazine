@@ -1,4 +1,4 @@
-"""Google Photos only Flask workflow for Magazine."""
+"""Google Photos only Flask workflow for Maison Folio."""
 
 from __future__ import annotations
 
@@ -118,7 +118,7 @@ def create_app() -> Flask:
     def import_screen():
         return render_template(
             "import.html",
-            title="Magazine",
+            title="Maison Folio",
             active_page="import",
             google_configured=bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
             story_config=load_story_config(),
@@ -130,6 +130,39 @@ def create_app() -> Flask:
     @app.route("/summary")
     def legacy_routes():
         return redirect(url_for("import_screen"))
+
+    @app.route("/preview")
+    def preview_screen():
+        pdf_path = OUTPUT_DIR / "magazine.pdf"
+        if not pdf_path.exists():
+            flash("Generate a magazine first to preview it.", "error")
+            return redirect(url_for("import_screen"))
+
+        story_config = load_story_config()
+        return render_template(
+            "preview.html",
+            title="Preview",
+            active_page="preview",
+            story_config=story_config,
+            pdf_url=url_for("preview_pdf"),
+            download_url=url_for("download_pdf"),
+        )
+
+    @app.route("/preview/pdf")
+    def preview_pdf():
+        pdf_path = OUTPUT_DIR / "magazine.pdf"
+        if not pdf_path.exists():
+            flash("Generate a magazine first to preview it.", "error")
+            return redirect(url_for("import_screen"))
+        return send_file(pdf_path, mimetype="application/pdf", as_attachment=False, download_name="Maison-Folio.pdf")
+
+    @app.route("/preview/download")
+    def download_pdf():
+        pdf_path = OUTPUT_DIR / "magazine.pdf"
+        if not pdf_path.exists():
+            flash("Generate a magazine first to download it.", "error")
+            return redirect(url_for("import_screen"))
+        return send_file(pdf_path, mimetype="application/pdf", as_attachment=True, download_name="Maison-Folio.pdf")
 
     @app.route("/api/import/google/start", methods=["POST"])
     def api_import_google_start():
@@ -226,7 +259,7 @@ def create_app() -> Flask:
     def api_layout_estimate():
         selected_total = int(request.args.get("selected_total", 0))
         density = float(request.args.get("density", 1.7))
-        fixed_pages = int(request.args.get("fixed_pages", 4))
+        fixed_pages = int(request.args.get("fixed_pages", 3))
         pages = estimate_page_count(
             photo_count=selected_total,
             density=density,
@@ -242,13 +275,13 @@ def create_app() -> Flask:
 
     @app.route("/generate", methods=["POST"])
     def generate():
-        title = (request.form.get("title") or "Magazine").strip()
+        title = (request.form.get("title") or "Maison Folio").strip()
         subtitle = (request.form.get("subtitle") or "").strip()
         dedication = (request.form.get("dedication") or "").strip()
         style = request.form.get("style", "editorial_luxury")
         pages = request.form.get("pages", "auto")
         density = float(request.form.get("density", 1.7))
-        fixed_pages = int(request.form.get("fixed_pages", 4))
+        fixed_pages = int(request.form.get("fixed_pages", 3))
         google_token = (request.form.get("google_token") or "").strip()
         google_session_id = (request.form.get("google_session_id") or "").strip()
 
@@ -294,12 +327,7 @@ def create_app() -> Flask:
                 import_result["skipped"],
                 len(pages_spec),
             )
-            return send_file(
-                output_path,
-                mimetype="application/pdf",
-                as_attachment=True,
-                download_name="Magazine.pdf",
-            )
+            return redirect(url_for("preview_screen"))
         except Exception as exc:
             logger.exception("magazine_generate_failed")
             flash(f"Error generating magazine: {exc}", "error")

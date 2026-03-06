@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="preview-shell">
+    <div class="preview-copy">
+        <span class="preview-kicker">Maison Folio Preview</span>
+        <h1 class="preview-title">See the magazine before you download it.</h1>
+        <p class="preview-sub">
+            Review the PDF in the browser, then download it when you're happy with how the cover and spreads feel.
+        </p>
+        <div class="preview-actions">
+            <a class="btn btn-primary" href="{{ download_url }}">Download PDF</a>
+            <a class="btn btn-ghost" href="{{ url_for('import_screen') }}">Create another</a>
+        </div>
+    </div>
+
+    <div class="preview-frame">
+        <iframe
+            class="preview-embed"
+            src="{{ pdf_url }}#view=FitH"
+            title="Maison Folio PDF preview"
+        ></iframe>
+    </div>
+</section>
+{% endblock %}

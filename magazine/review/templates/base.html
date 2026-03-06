@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title | default('Magazine') }}</title>
+    <title>{{ title | default('Maison Folio') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <meta name="theme-color" content="#0a0a0a">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="page-{{ active_page | default('default') }}">
     <div class="grain-overlay" aria-hidden="true"></div>
     <div class="page">
         <header class="site-header">
-            <span class="brand">Magazine</span>
+            <span class="brand">Maison Folio</span>
         </header>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

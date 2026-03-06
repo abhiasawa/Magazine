@@ -221,6 +221,75 @@ main {
     backdrop-filter: blur(18px);
 }
 
+/* ── Preview ── */
+
+.page-preview main {
+    display: block;
+    padding: clamp(1.5rem, 4vh, 3rem) 0;
+}
+
+.preview-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.preview-copy {
+    max-width: 42rem;
+}
+
+.preview-kicker {
+    display: inline-block;
+    margin-bottom: 0.85rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted-light);
+}
+
+.preview-title {
+    margin: 0;
+    max-width: 10ch;
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 7vw, 5.5rem);
+    font-style: italic;
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+}
+
+.preview-sub {
+    margin: 1rem 0 0;
+    max-width: 52ch;
+    color: var(--muted-light);
+    line-height: 1.8;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.preview-frame {
+    min-height: 72vh;
+    padding: 1rem;
+    border: 1px solid rgba(244, 241, 234, 0.1);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        rgba(255, 255, 255, 0.03);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(18px);
+}
+
+.preview-embed {
+    display: block;
+    width: 100%;
+    min-height: calc(72vh - 2rem);
+    border: 0;
+    background: #fff;
+}
+
 .cta-actions {
     display: grid;
     gap: 1rem;
@@ -557,6 +626,10 @@ main {
         align-content: center;
         align-items: center;
     }
+
+    .page-preview main {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 979px) {
@@ -572,6 +645,10 @@ main {
     .cta-card {
         width: 100%;
         margin-left: 0;
+    }
+
+    .preview-frame {
+        min-height: 65vh;
     }
 }
 
@@ -616,6 +693,19 @@ main {
     .form-actions { align-items: stretch; }
     .cta-card {
         padding: 1.25rem;
+    }
+
+    .preview-actions {
+        flex-direction: column;
+    }
+
+    .preview-frame {
+        padding: 0.75rem;
+        min-height: 58vh;
+    }
+
+    .preview-embed {
+        min-height: calc(58vh - 1.5rem);
     }
 }
 
