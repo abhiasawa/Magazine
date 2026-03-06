@@ -12,7 +12,7 @@
             <span>you hold.</span>
         </h1>
     </div>
-    <p class="hero-sub">Select photos from Google Photos and receive a print-ready editorial magazine. No design skills needed.</p>
+    <p class="hero-sub">Choose moments directly from Google Photos and turn them into a print-ready editorial magazine.</p>
     <div class="hero-meta">
         <span class="hero-meta-line"></span>
         <p>Print-on-demand editorial keepsake</p>
@@ -24,22 +24,28 @@
         <div class="cta-actions">
             {% if google_configured %}
             <button id="google-start" class="btn btn-primary">
-                <span>Choose Your Photos</span>
+                <span class="btn-google-mark" aria-hidden="true">
+                    <span class="google-dot google-dot-red"></span>
+                    <span class="google-dot google-dot-yellow"></span>
+                    <span class="google-dot google-dot-green"></span>
+                    <span class="google-dot google-dot-blue"></span>
+                </span>
+                <span>Choose in Google Photos</span>
                 <span class="btn-arrow" aria-hidden="true">→</span>
             </button>
             {% else %}
             <button class="btn btn-primary" disabled>Google Photos unavailable</button>
             {% endif %}
-            <p class="cta-help">Opens Google Photos so you can pick the moments that matter.</p>
-            <button type="button" id="google-reset" class="btn btn-ghost">Start over</button>
+            <p class="cta-help">Google Photos opens in a secure pop-up. Pick the images there, then return here to generate your magazine.</p>
+            <button type="button" id="google-reset" class="btn btn-ghost" hidden>Start over</button>
         </div>
 
-        <div class="status-bar" id="google-status-panel">
+        <div class="status-bar" id="google-status-panel" hidden>
             <div class="status-row">
                 <span class="status-label">Status</span>
-                <span class="status-value" id="google-status">Your magazine is waiting.</span>
+                <span class="status-value" id="google-status">Connecting to Google Photos.</span>
             </div>
-            <p class="status-detail" id="google-detail">Select your photos in Google Photos. Once you've picked the moments, we'll handle the rest.</p>
+            <p class="status-detail" id="google-detail">Approve access, choose the photos you want, then press Done in Google Photos.</p>
             <div class="status-metrics">
                 <div class="metric">
                     <span class="metric-num" id="selected-total">0</span>
@@ -94,24 +100,23 @@
     const tokenInput = document.getElementById('google-token-input');
     const sessionInput = document.getElementById('google-session-input');
     const googleReset = document.getElementById('google-reset');
+    const googleStatusPanel = document.getElementById('google-status-panel');
     const generateForm = document.getElementById('generate-form');
     const generateButton = document.getElementById('generate-button');
     const selectedTotalEl = document.getElementById('selected-total');
     const estimatedPagesEl = document.getElementById('estimated-pages');
     const flowStateEl = document.getElementById('flow-state');
-    const storageKey = 'magazineGoogleSession';
     let pickerPopup = null;
     let pollTimer = null;
     let autoGenerateArmed = false;
+    let currentSession = null;
 
     function loadSession() {
-        try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); }
-        catch { return null; }
+        return currentSession;
     }
 
     function saveSession(session) {
-        if (!session) { localStorage.removeItem(storageKey); return; }
-        localStorage.setItem(storageKey, JSON.stringify(session));
+        currentSession = session ? { ...session } : null;
     }
 
     async function refreshEstimate(selectedTotal) {
@@ -127,9 +132,11 @@
 
     function renderSession(session) {
         if (!session) {
-            googleStatus.textContent = 'Your magazine is waiting.';
-            googleDetail.textContent = 'Select your photos in Google Photos. Once you\u2019ve picked the moments, we\u2019ll handle the rest.';
-            flowStateEl.textContent = 'Waiting';
+            googleStatusPanel.hidden = true;
+            googleReset.hidden = true;
+            googleStatus.textContent = 'Connecting to Google Photos.';
+            googleDetail.textContent = 'Approve access, choose the photos you want, then press Done in Google Photos.';
+            flowStateEl.textContent = 'Idle';
             selectedTotalEl.textContent = '0';
             estimatedPagesEl.textContent = '0';
             generatePanel.hidden = true;
@@ -137,6 +144,8 @@
             if (sessionInput) sessionInput.value = '';
             return;
         }
+        googleStatusPanel.hidden = false;
+        googleReset.hidden = false;
         googleStatus.textContent = session.message || 'Working';
         googleDetail.textContent = session.detail || '';
         flowStateEl.textContent = session.status || 'Working';
@@ -334,8 +343,8 @@
             token: data.token || '',
             sessionId: data.sessionId || '',
             status: 'waiting_selection',
-            message: 'Choose the final photos in Google Photos.',
-            detail: 'Once you press Done there, generation starts automatically.',
+            message: 'Choose your photos in Google Photos.',
+            detail: 'When you press Done in Google Photos, we will count them here and start generation.',
             selectedTotal: 0,
         });
         renderSession(loadSession());
@@ -345,13 +354,32 @@
     if (googleStart) {
         googleStart.addEventListener('click', async () => {
             saveSession(null);
-            googleStatus.textContent = 'Opening Google Photos\u2026';
-            googleDetail.textContent = 'Approve access, then choose the photos.';
+            renderSession({
+                status: 'connecting',
+                message: 'Opening Google Photos…',
+                detail: 'Approve access, then choose the photos you want in Google Photos.',
+                selectedTotal: 0,
+            });
             const res = await fetch('/api/import/google/start', { method: 'POST' });
             const data = await res.json();
-            if (!data.success) { googleStatus.textContent = data.error || 'Could not start Google Photos.'; return; }
+            if (!data.success) {
+                renderSession({
+                    status: 'error',
+                    message: data.error || 'Could not start Google Photos.',
+                    detail: 'Try again in a moment.',
+                    selectedTotal: 0,
+                });
+                return;
+            }
             pickerPopup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
-            if (!pickerPopup) { googleStatus.textContent = 'Allow pop-ups for this site and try again.'; googleDetail.textContent = ''; }
+            if (!pickerPopup) {
+                renderSession({
+                    status: 'error',
+                    message: 'Allow pop-ups for this site and try again.',
+                    detail: '',
+                    selectedTotal: 0,
+                });
+            }
         });
     }
 
@@ -371,12 +399,6 @@
         });
     }
 
-    const existing = loadSession();
-    if (existing) {
-        renderSession(existing);
-        if (existing.status !== 'ready' && existing.status !== 'error') startPolling();
-    } else {
-        renderSession(null);
-    }
+    renderSession(null);
 </script>
 {% endblock %}

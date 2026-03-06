@@ -241,16 +241,16 @@ def build_layout(
 
     template_cycle = [
         "full_bleed",
-        "collage3",
-        "collage2",
-        "mosaic",
-        "collage4",
+        "cinematic",
+        "editorial",
         "two_photo",
         "three_photo",
-        "big_polaroid",
-        "collage_stack",
         "photo_quote_overlay",
-        "cinematic",
+        "mosaic",
+        "collage2",
+        "collage3",
+        "collage4",
+        "full_bleed",
     ]
 
     photo_requirements = {
@@ -268,7 +268,7 @@ def build_layout(
         "editorial": 1,
     }
 
-    premium_templates = {"full_bleed", "cinematic", "big_polaroid", "editorial"}
+    premium_templates = {"full_bleed", "cinematic", "photo_quote_overlay", "editorial"}
 
     chapter_titles = [
         "The Beginning",
