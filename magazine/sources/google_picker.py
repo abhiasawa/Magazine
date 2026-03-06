@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import click
 import requests
@@ -28,6 +29,13 @@ class GooglePhotoPicker:
         self.credentials = None
         self.session_id = None
         self.picker_uri = None
+
+    @classmethod
+    def from_saved_state(cls, token: str, session_id: str | None = None):
+        picker = cls()
+        picker.credentials = SimpleNamespace(token=token)
+        picker.session_id = session_id
+        return picker
 
     def get_auth_url(self, state: str | None = None, redirect_uri: str | None = None) -> str:
         """Generate OAuth authorization URL."""
@@ -111,6 +119,15 @@ class GooglePhotoPicker:
             time.sleep(poll_interval)
 
         return False
+
+    def session_status(self) -> dict:
+        """Fetch current picker session payload."""
+        resp = requests.get(
+            f"{PICKER_API_BASE}/sessions/{self.session_id}",
+            headers={"Authorization": f"Bearer {self.credentials.token}"},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     def get_media_items(self) -> list[dict]:
         """Retrieve all selected media items (paginated)."""

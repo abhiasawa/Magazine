@@ -131,6 +131,12 @@
                 details.push(`${data.skipped} duplicates skipped`);
             }
         }
+        if (Array.isArray(data.events) && data.events.length) {
+            const last = data.events[data.events.length - 1];
+            if (last && last.stage) {
+                details.push(`Stage: ${last.stage.replaceAll('_', ' ')}`);
+            }
+        }
         googleResult.textContent = details.join(' • ');
 
         if (data.status === 'done' || data.status === 'error') {

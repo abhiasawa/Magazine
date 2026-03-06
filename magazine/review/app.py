@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import threading
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, flash
@@ -33,6 +36,44 @@ from magazine.sources.google_picker import GooglePhotoPicker
 
 _GOOGLE_JOBS: dict[str, dict] = {}
 _GOOGLE_JOBS_LOCK = threading.Lock()
+_JOB_BATCH_SIZE = 10
+_JOB_DIR = Path(THUMBNAILS_DIR).parent / "import_jobs"
+_JOB_DIR.mkdir(parents=True, exist_ok=True)
+logger = logging.getLogger(__name__)
+
+
+def _job_path(job_id: str) -> Path:
+    return _JOB_DIR / f"{job_id}.json"
+
+
+def _sanitize_job(job: dict) -> dict:
+    return {k: v for k, v in job.items() if k != "picker"}
+
+
+def _write_job_file(job_id: str, job: dict):
+    _job_path(job_id).write_text(json.dumps(_sanitize_job(job), indent=2))
+
+
+def _record_job_event(job_id: str, stage: str, message: str, **details):
+    timestamp = datetime.now(timezone.utc).isoformat()
+    with _GOOGLE_JOBS_LOCK:
+        job = _GOOGLE_JOBS.get(job_id, {})
+        events = list(job.get("events", []))
+        events.append(
+            {
+                "time": timestamp,
+                "stage": stage,
+                "message": message,
+                "details": details,
+            }
+        )
+        job["events"] = events[-40:]
+        _GOOGLE_JOBS[job_id] = job
+        try:
+            _write_job_file(job_id, job)
+        except Exception:
+            logger.exception("Failed writing job file", extra={"job_id": job_id})
+    logger.info("google_job stage=%s job_id=%s message=%s details=%s", stage, job_id, message, details)
 
 
 def _face_count(value) -> int:
@@ -49,11 +90,27 @@ def _set_job(job_id: str, **changes):
         job = _GOOGLE_JOBS.get(job_id, {})
         job.update(changes)
         _GOOGLE_JOBS[job_id] = job
+        try:
+            _write_job_file(job_id, job)
+        except Exception:
+            logger.exception("Failed writing job file", extra={"job_id": job_id})
 
 
 def _get_job(job_id: str) -> dict | None:
     with _GOOGLE_JOBS_LOCK:
-        return _GOOGLE_JOBS.get(job_id)
+        job = _GOOGLE_JOBS.get(job_id)
+        if job:
+            return job
+    path = _job_path(job_id)
+    if path.exists():
+        try:
+            job = json.loads(path.read_text())
+            with _GOOGLE_JOBS_LOCK:
+                _GOOGLE_JOBS[job_id] = job
+            return job
+        except Exception:
+            logger.exception("Failed reading job file", extra={"job_id": job_id})
+    return None
 
 
 def get_photos_with_state() -> list[dict]:
@@ -164,6 +221,111 @@ def _google_sync_worker(job_id: str):
         )
     except Exception as exc:
         _set_job(job_id, status="error", message=str(exc))
+
+
+def _advance_google_job(job_id: str) -> dict | None:
+    job = _get_job(job_id)
+    if not job:
+        return None
+    if job.get("status") in {"done", "error"}:
+        return job
+
+    picker_state = job.get("picker_state") or {}
+    token = picker_state.get("token")
+    session_id = picker_state.get("session_id")
+    if not token or not session_id:
+        return job
+
+    picker = GooglePhotoPicker.from_saved_state(token=token, session_id=session_id)
+
+    if not job.get("media_items"):
+        try:
+            session = picker.session_status()
+            if not session.get("mediaItemsSet"):
+                _set_job(
+                    job_id,
+                    status="waiting_selection",
+                    message="Waiting for you to press Done in Google Photos.",
+                )
+                _record_job_event(job_id, "waiting_selection", "Selection not completed yet")
+                return _get_job(job_id)
+
+            items = picker.get_media_items()
+            _set_job(
+                job_id,
+                status="syncing",
+                message=f"Preparing to import {len(items)} selected photos.",
+                media_items=items,
+                selected_total=len(items),
+                batch_cursor=0,
+                imported=job.get("imported", 0),
+                skipped=job.get("skipped", 0),
+            )
+            _record_job_event(job_id, "selection_complete", "Google selection completed", selected_total=len(items))
+            job = _get_job(job_id) or {}
+        except Exception as exc:
+            _set_job(job_id, status="error", message=str(exc))
+            _record_job_event(job_id, "error", "Failed while checking Google session", error=str(exc))
+            return _get_job(job_id)
+
+    items = job.get("media_items") or []
+    cursor = int(job.get("batch_cursor", 0))
+    if cursor >= len(items):
+        _set_job(
+            job_id,
+            status="done",
+            message=f"Import complete. Imported {job.get('imported', 0)} photos.",
+        )
+        _record_job_event(job_id, "done", "Import completed", imported=job.get("imported", 0), skipped=job.get("skipped", 0))
+        return _get_job(job_id)
+
+    batch = items[cursor:cursor + _JOB_BATCH_SIZE]
+    _set_job(
+        job_id,
+        status="processing",
+        message=f"Importing photos {cursor + 1}-{cursor + len(batch)} of {len(items)}.",
+    )
+    _record_job_event(job_id, "processing", "Starting import batch", cursor=cursor, batch_size=len(batch))
+    try:
+        paths = picker.download_all(batch)
+        result = import_existing_paths(paths, source_prefix="google")
+        for path in paths:
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        imported = int(job.get("imported", 0)) + int(result["imported"])
+        skipped = int(job.get("skipped", 0)) + int(result["skipped"])
+        next_cursor = cursor + len(batch)
+        status = "done" if next_cursor >= len(items) else "syncing"
+        message = (
+            f"Import complete. Imported {imported} photos."
+            if status == "done"
+            else f"Imported {next_cursor} of {len(items)} selected photos."
+        )
+        _set_job(
+            job_id,
+            status=status,
+            message=message,
+            batch_cursor=next_cursor,
+            imported=imported,
+            skipped=skipped,
+            total=len(items),
+        )
+        _record_job_event(
+            job_id,
+            status,
+            "Finished import batch",
+            next_cursor=next_cursor,
+            selected_total=len(items),
+            imported=imported,
+            skipped=skipped,
+        )
+    except Exception as exc:
+        _set_job(job_id, status="error", message=str(exc))
+        _record_job_event(job_id, "error", "Batch import failed", error=str(exc), cursor=cursor)
+    return _get_job(job_id)
 
 
 def create_app() -> Flask:
@@ -287,6 +449,7 @@ def create_app() -> Flask:
             message="Waiting for you to approve access in Google.",
             picker=picker,
         )
+        _record_job_event(job_id, "auth", "Google auth flow started")
         return jsonify({"success": True, "job_id": job_id, "auth_url": auth_url})
 
     @app.route("/api/import/google/callback")
@@ -295,6 +458,7 @@ def create_app() -> Flask:
         job_id = request.args.get("state", "")
         job = _get_job(job_id)
         if not job:
+            logger.error("google_job missing_on_callback job_id=%s", job_id)
             return "Unknown or expired Google import job", 400
 
         picker: GooglePhotoPicker = job["picker"]
@@ -304,13 +468,17 @@ def create_app() -> Flask:
             _set_job(
                 job_id,
                 status="picker_ready",
-                message="Google Photos connected. Pick the photos you want to bring into the magazine.",
+                message="Google Photos connected. Pick the photos you want and press Done.",
                 picker_uri=picker_uri,
+                picker_state={
+                    "token": picker.credentials.token,
+                    "session_id": picker.session_id,
+                },
             )
-            thread = threading.Thread(target=_google_sync_worker, args=(job_id,), daemon=True)
-            thread.start()
+            _record_job_event(job_id, "picker_ready", "Google callback completed", picker_uri=picker_uri)
         except Exception as exc:
             _set_job(job_id, status="error", message=str(exc))
+            _record_job_event(job_id, "error", "Google callback failed", error=str(exc))
             return f"Google auth failed: {exc}", 500
 
         return render_template(
@@ -320,9 +488,14 @@ def create_app() -> Flask:
 
     @app.route("/api/import/jobs/<job_id>")
     def api_import_job(job_id):
-        job = _get_job(job_id)
+        job = _advance_google_job(job_id)
         if not job:
-            return jsonify({"success": False, "error": "Job not found"}), 404
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Job not found. Hosted imports use short-lived serverless state, so this job may have expired before processing finished.",
+                }
+            ), 404
 
         payload = {k: v for k, v in job.items() if k != "picker"}
         payload["success"] = True
