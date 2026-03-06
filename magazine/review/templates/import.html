@@ -3,7 +3,7 @@
 {% block content %}
 <section class="hero">
     <h1 class="hero-title">Turn memories into something you hold.</h1>
-    <p class="hero-sub">Pick your favorite photos from Google Photos, add a cover line, and get a print-ready editorial magazine — beautifully laid out, no design skills needed.</p>
+    <p class="hero-sub">Select photos from Google Photos and receive a print-ready editorial magazine. No design skills needed.</p>
 </section>
 
 <section class="cta-section">
@@ -40,8 +40,8 @@
 </section>
 
 <section class="generate-panel" id="generate-panel" hidden>
-    <h2 class="generate-heading">Your magazine is ready to build.</h2>
-    <p class="generate-sub">We'll lay out your photos in a print-ready editorial format. One click, nothing to configure.</p>
+    <h2 class="generate-heading">Ready to build.</h2>
+    <p class="generate-sub">One click, print-ready editorial layout.</p>
 
     <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
         <input type="hidden" name="google_token" id="google-token-input">
