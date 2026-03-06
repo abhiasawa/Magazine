@@ -1,18 +1,12 @@
-"""PDF generation using WeasyPrint with Jinja2 templates.
-
-Fallback chain: WeasyPrint → headless Chrome → reportlab (pure Python).
-"""
+"""PDF generation using reportlab (pure Python, no system deps)."""
 
 from __future__ import annotations
 
 import logging
-import shutil
-import subprocess
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 import click
-from jinja2 import Environment, FileSystemLoader
 from tqdm import tqdm
 
 from magazine.config import (
@@ -24,16 +18,13 @@ from magazine.config import (
 from magazine.layout.engine import PageSpec
 from magazine.processing.images import make_print_image
 
+logger = logging.getLogger(__name__)
 
 # Paths
 PDF_DIR = Path(__file__).parent
 TEMPLATES_DIR = PDF_DIR / "templates"
 STATIC_DIR = PDF_DIR / "static"
 ASSETS_DIR = PDF_DIR / "assets"
-DEFAULT_CSS_PATH = STATIC_DIR / "magazine.css"
-EDITORIAL_CSS_PATH = STATIC_DIR / "editorial_luxury.css"
-ORNAMENT_DIVIDER = ASSETS_DIR / "ornaments" / "divider.svg"
-
 
 # Approximate target slot sizes by template and index.
 _SLOT_TARGETS = {
@@ -52,12 +43,6 @@ _SLOT_TARGETS = {
     "mosaic": {0: (1300, 900), 1: (1300, 900), 2: (1300, 900), 3: (1300, 900)},
     "collage_stack": {0: (1900, 1400), 1: (1900, 1400), 2: (1900, 1400)},
 }
-
-
-def _css_path_for_style(style: str) -> Path:
-    if style == "editorial_luxury" and EDITORIAL_CSS_PATH.exists():
-        return EDITORIAL_CSS_PATH
-    return DEFAULT_CSS_PATH
 
 
 def _slot_size(template: str, idx: int) -> tuple[int, int]:
@@ -126,76 +111,7 @@ def prepare_print_images(pages: list[PageSpec]) -> list[PageSpec]:
     return pages
 
 
-def render_html(pages: list[PageSpec], style: str = DEFAULT_STYLE) -> str:
-    """Render the magazine HTML from Jinja2 templates."""
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATES_DIR)),
-        autoescape=False,
-    )
-    template = env.get_template("magazine.html")
-
-    page_dicts = []
-    for page in pages:
-        page_dicts.append(
-            {
-                "template": page.template,
-                "photos": page.photos,
-                "quote": page.quote,
-                "title": page.title,
-                "subtitle": page.subtitle,
-                "dedication": page.dedication,
-                "section_title": page.section_title,
-                "page_number": page.page_number,
-            }
-        )
-
-    css_path = _css_path_for_style(style)
-    html = template.render(
-        pages=page_dicts,
-        css_path=css_path.as_uri(),
-        ornament_divider=ORNAMENT_DIVIDER.as_uri(),
-    )
-    return html
-
-
-def _find_chrome_binary() -> str | None:
-    candidates = [
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-        shutil.which("google-chrome"),
-        shutil.which("chromium"),
-        shutil.which("chromium-browser"),
-    ]
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return candidate
-    return None
-
-
-def _write_pdf_with_chrome(html_path: Path, output_path: Path):
-    chrome = _find_chrome_binary()
-    if not chrome:
-        raise click.ClickException(
-            "WeasyPrint is unavailable and no Chrome-compatible browser was found for PDF fallback."
-        )
-
-    cmd = [
-        chrome,
-        "--headless=new",
-        "--disable-gpu",
-        "--no-pdf-header-footer",
-        "--allow-file-access-from-files",
-        f"--print-to-pdf={output_path}",
-        html_path.as_uri(),
-    ]
-    subprocess.run(cmd, check=True)
-
-
-logger = logging.getLogger(__name__)
-
-
-# ── Reportlab fallback (pure Python, no system deps) ──────────────────────
+# ── Image / text helpers ──────────────────────────────────────────────────
 
 
 def _uri_to_path(uri: str) -> Path | None:
@@ -223,8 +139,11 @@ def _photo_path(photo: dict) -> Path | None:
     return None
 
 
-def _write_pdf_with_reportlab(pages: list[PageSpec], output_path: Path):
-    """Pure-Python PDF fallback using reportlab."""
+# ── Reportlab renderer ────────────────────────────────────────────────────
+
+
+def _render_pdf(pages: list[PageSpec], output_path: Path):
+    """Render magazine pages to PDF using reportlab."""
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import Color
@@ -313,13 +232,10 @@ def _write_pdf_with_reportlab(pages: list[PageSpec], output_path: Path):
         _fill_page(bg_dark)
         if page.photos:
             _draw_image_fill(page.photos[0], 0, 0, W, H)
-            # Dark overlay for text legibility
             c.setFillColor(Color(0, 0, 0, alpha=0.4))
             c.rect(0, 0, W, H * 0.45, fill=1, stroke=0)
         y = H * 0.3
         if page.title:
-            c.setFont("Times-Bold", 48)
-            c.setFillColor(white)
             _draw_text_block(page.title, MARGIN, y, "Times-Bold", 48, white,
                              W - 2 * MARGIN, "left")
         if page.subtitle:
@@ -343,8 +259,7 @@ def _write_pdf_with_reportlab(pages: list[PageSpec], output_path: Path):
     def _dedication(page):
         _fill_page(bg_cream)
         if page.dedication:
-            y = H * 0.55
-            _draw_text_block(page.dedication, MARGIN * 2, y, "Times-Italic", 18,
+            _draw_text_block(page.dedication, MARGIN * 2, H * 0.55, "Times-Italic", 18,
                              muted, W - 4 * MARGIN, "center")
         _page_number(page.page_number)
 
@@ -362,11 +277,11 @@ def _write_pdf_with_reportlab(pages: list[PageSpec], output_path: Path):
 
     def _quote(page):
         _fill_page(bg_cream)
+        y = H * 0.6
         if page.quote:
             text = page.quote.get("text", "")
             author = page.quote.get("author", "")
             if text:
-                y = H * 0.6
                 y = _draw_text_block(f"\u201c{text}\u201d", MARGIN * 2, y,
                                      "Times-Italic", 22, ink, W - 4 * MARGIN, "center")
             if author:
@@ -381,7 +296,6 @@ def _write_pdf_with_reportlab(pages: list[PageSpec], output_path: Path):
         img_w = W - 2 * pad
         img_h = H * 0.65
         img_y = H - pad - img_h
-        # White polaroid border
         c.setFillColor(Color(1, 1, 1))
         c.roundRect(pad - 4 * mm, img_y - 18 * mm, img_w + 8 * mm,
                     img_h + 22 * mm, 3 * mm, fill=1, stroke=0)
@@ -512,10 +426,7 @@ def generate_pdf(
     output_path: str | None = None,
     style: str = DEFAULT_STYLE,
 ) -> Path:
-    """Generate the final magazine PDF.
-
-    Fallback chain: WeasyPrint → headless Chrome → reportlab.
-    """
+    """Generate the final magazine PDF using reportlab."""
     pages = prepare_print_images(pages)
 
     if output_path is None:
@@ -525,35 +436,8 @@ def generate_pdf(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Try WeasyPrint (best quality, needs system libs)
-    try:
-        click.echo("Rendering magazine layout...")
-        html_content = render_html(pages, style=style)
-        html_path = OUTPUT_DIR / "magazine.html"
-        with open(html_path, "w") as f:
-            f.write(html_content)
-
-        click.echo("Generating PDF with WeasyPrint...")
-        from weasyprint import HTML
-
-        html_doc = HTML(string=html_content, base_url=str(TEMPLATES_DIR))
-        html_doc.write_pdf(str(output_path), presentational_hints=True)
-    except Exception as exc:
-        logger.info("WeasyPrint unavailable: %s", exc)
-
-        # Try headless Chrome
-        chrome = _find_chrome_binary()
-        if chrome:
-            click.echo("Falling back to headless Chrome...")
-            html_content = render_html(pages, style=style)
-            html_path = OUTPUT_DIR / "magazine.html"
-            with open(html_path, "w") as f:
-                f.write(html_content)
-            _write_pdf_with_chrome(html_path, output_path)
-        else:
-            # Pure-Python fallback
-            click.echo("Generating PDF with reportlab (pure Python fallback)...")
-            _write_pdf_with_reportlab(pages, output_path)
+    click.echo("Generating PDF...")
+    _render_pdf(pages, output_path)
 
     file_size_mb = output_path.stat().st_size / (1024 * 1024)
     click.echo(f"PDF generated: {output_path} ({file_size_mb:.1f} MB)")
