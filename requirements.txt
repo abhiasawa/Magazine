@@ -10,4 +10,5 @@ google-auth-oauthlib
 requests
 tqdm
 pypdf
+reportlab
 pytest

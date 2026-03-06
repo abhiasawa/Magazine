@@ -52,6 +52,7 @@
         <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
         <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
         <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
+        <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
         <input type="hidden" name="run_preflight" value="on">
 
         <div class="form-row">
@@ -113,7 +114,7 @@
             min_pages: '{{ story_config.pagination.min_pages }}',
             max_pages: '{{ story_config.pagination.max_pages }}',
             page_step: '{{ story_config.pagination.page_step }}',
-            fixed_pages: '8',
+            fixed_pages: '{{ story_config.pagination.fixed_pages }}',
         });
         const res = await fetch(`/api/layout/estimate?${params.toString()}`);
         const data = await res.json();

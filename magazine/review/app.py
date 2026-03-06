@@ -257,6 +257,7 @@ def create_app() -> Flask:
         max_pages = int(request.form.get("max_pages", 72))
         density = float(request.form.get("density", 1.7))
         page_step = int(request.form.get("page_step", 4))
+        fixed_pages = int(request.form.get("fixed_pages", 8))
         run_preflight = request.form.get("run_preflight") == "on"
         google_token = (request.form.get("google_token") or "").strip()
         google_session_id = (request.form.get("google_session_id") or "").strip()
@@ -277,7 +278,7 @@ def create_app() -> Flask:
                 "min_pages": min_pages,
                 "max_pages": max_pages,
                 "density": density,
-                "fixed_pages": 8,
+                "fixed_pages": fixed_pages,
                 "page_step": page_step,
             },
         }
