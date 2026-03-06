@@ -1,116 +1,137 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="simple-shell">
-    <aside class="simple-rail">
-        <p class="section-kicker">Simple Flow</p>
-        <h1 class="stage-title">Select the photos in Google Photos. Add a cover title. Generate the magazine.</h1>
-        <p class="stage-copy">No local upload. No review queue. No extra decisions. The photos you choose in Google Photos become the issue.</p>
+<section class="landing-shell">
+    <section class="hero-grid">
+        <div class="hero-copy">
+            <p class="eyebrow">Print-worthy in one pass</p>
+            <h1 class="hero-title">Turn a Google Photos selection into an editorial magazine worth printing.</h1>
+            <p class="hero-subtitle">No local upload. No review maze. No setup ritual. Choose the final frames in Google Photos, add a title, and generate the PDF.</p>
 
-        <div class="rail-quote">
-            <p>The best magazine starts with a sharp edit. Choose only the frames you want printed.</p>
-        </div>
-
-        <dl class="metric-list">
-            <div class="metric-item">
-                <dt>Selected</dt>
-                <dd id="selected-total">0</dd>
-            </div>
-            <div class="metric-item">
-                <dt>Estimated pages</dt>
-                <dd id="estimated-pages">0</dd>
-            </div>
-            <div class="metric-item">
-                <dt>Status</dt>
-                <dd id="flow-state">Waiting</dd>
-            </div>
-        </dl>
-    </aside>
-
-    <div class="simple-stage">
-        <section class="hero-panel">
-            <div class="surface-intro">
-                <p class="surface-kicker">Google Photos</p>
-                <h2 class="surface-title">One source. One decision. One finished magazine.</h2>
-                <p class="surface-copy">Connect your Google Photos library, choose the final frames there, then generate the PDF here.</p>
-            </div>
-
-            <div class="google-flow-card">
-                <div class="flow-step">
-                    <span class="flow-index">01</span>
-                    <div>
-                        <h3>Connect Google Photos</h3>
-                        <p>Open the Google window and approve access.</p>
-                    </div>
-                </div>
-                <div class="flow-step">
-                    <span class="flow-index">02</span>
-                    <div>
-                        <h3>Select the final photos</h3>
-                        <p>Use Google Photos to choose exactly what should appear in the magazine.</p>
-                    </div>
-                </div>
-                <div class="flow-step">
-                    <span class="flow-index">03</span>
-                    <div>
-                        <h3>Generate the PDF</h3>
-                        <p>Once the selection is ready, add the cover line and export.</p>
-                    </div>
-                </div>
-
+            <div class="hero-actions">
                 {% if google_configured %}
-                <button id="google-start" class="btn btn-primary btn-wide">Select photos from Google Photos</button>
+                <button id="google-start" class="btn btn-primary">Start with Google Photos</button>
                 {% else %}
-                <button class="btn btn-secondary btn-wide" disabled>Google Photos unavailable</button>
+                <button class="btn btn-secondary" disabled>Google Photos unavailable</button>
                 {% endif %}
-                <button type="button" id="google-reset" class="btn btn-secondary btn-wide">Start over</button>
+                <button type="button" id="google-reset" class="btn btn-secondary">Start over</button>
+            </div>
 
-                <div class="status-panel" id="google-status-panel">
-                    <p class="status-label">Import status</p>
+            <div class="hero-note">
+                <span>One Google window opens. Select the keepers there. Return here to generate.</span>
+            </div>
+
+            <div class="status-ribbon" id="google-status-panel">
+                <div class="ribbon-item">
+                    <span class="ribbon-label">Status</span>
                     <strong id="google-status">Ready to connect</strong>
                     <p id="google-detail">Choose your photos in Google Photos. When the selection is complete, generation unlocks automatically.</p>
                 </div>
+                <div class="ribbon-item ribbon-metric">
+                    <span class="ribbon-label">Selected</span>
+                    <strong id="selected-total">0</strong>
+                </div>
+                <div class="ribbon-item ribbon-metric">
+                    <span class="ribbon-label">Estimated pages</span>
+                    <strong id="estimated-pages">0</strong>
+                </div>
+                <div class="ribbon-item ribbon-metric">
+                    <span class="ribbon-label">Flow</span>
+                    <strong id="flow-state">Waiting</strong>
+                </div>
             </div>
-        </section>
+        </div>
 
-        <section class="generate-panel" id="generate-panel" hidden>
-            <div class="surface-intro compact-intro">
-                <p class="surface-kicker">Issue Details</p>
-                <h2 class="surface-title">Add the cover line and generate.</h2>
-                <p class="surface-copy">Keep it minimal. A strong title is enough.</p>
+        <div class="hero-visual">
+            <div class="spread spread-left">
+                <div class="spread-image spread-image-tall"></div>
+                <div class="spread-caption">
+                    <span class="spread-kicker">Opening spread</span>
+                    <strong>Clean typography. Quiet pacing. Print-led composition.</strong>
+                </div>
             </div>
+            <div class="spread spread-center">
+                <div class="spread-header">
+                    <span>Magazine</span>
+                    <span>Issue one</span>
+                </div>
+                <div class="spread-collage">
+                    <div class="collage-block collage-wide"></div>
+                    <div class="collage-column">
+                        <div class="collage-block"></div>
+                        <div class="collage-block"></div>
+                    </div>
+                </div>
+                <div class="spread-footer">Google Photos in. Print-ready PDF out.</div>
+            </div>
+            <div class="spread spread-right">
+                <div class="quote-card">
+                    <span class="spread-kicker">What Magazine does</span>
+                    <p>It takes your selected photos and turns them into a paced, editorial PDF with automatic page count and print-first layout.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-            <form action="{{ url_for('generate') }}" method="POST" class="generate-form" id="generate-form">
-                <input type="hidden" name="google_token" id="google-token-input">
-                <input type="hidden" name="google_session_id" id="google-session-input">
-                <input type="hidden" name="pages" value="auto">
-                <input type="hidden" name="style" value="editorial_luxury">
-                <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
-                <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
-                <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
-                <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
-                <input type="hidden" name="run_preflight" value="on">
+    <section class="value-strip">
+        <article class="value-card">
+            <span class="value-index">01</span>
+            <h2>You choose the photos once.</h2>
+            <p>The only curation step happens in Google Photos, where your library already lives.</p>
+        </article>
+        <article class="value-card">
+            <span class="value-index">02</span>
+            <h2>Magazine handles the pacing.</h2>
+            <p>Page count is automatic and the layout is built for a premium editorial read, not a scrapbook.</p>
+        </article>
+        <article class="value-card">
+            <span class="value-index">03</span>
+            <h2>You leave with a PDF.</h2>
+            <p>Add a title, optional subtitle, and one opening line. Everything else stays out of the way.</p>
+        </article>
+    </section>
 
-                <label class="field-group" for="title">
+    <section class="generate-stage" id="generate-panel" hidden>
+        <div class="generate-stage-copy">
+            <p class="eyebrow">Final step</p>
+            <h2 class="stage-heading">Your selection is ready. Add the cover line and generate the issue.</h2>
+            <p class="stage-description">Keep it minimal. Strong names and a simple opening line read better than too much copy.</p>
+        </div>
+
+        <form action="{{ url_for('generate') }}" method="POST" class="generate-form" id="generate-form">
+            <input type="hidden" name="google_token" id="google-token-input">
+            <input type="hidden" name="google_session_id" id="google-session-input">
+            <input type="hidden" name="pages" value="auto">
+            <input type="hidden" name="style" value="editorial_luxury">
+            <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
+            <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
+            <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
+            <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
+            <input type="hidden" name="run_preflight" value="on">
+
+            <div class="form-grid">
+                <label class="field-group field-emphasis" for="title">
                     <span>Cover title</span>
                     <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
                 </label>
 
                 <label class="field-group" for="subtitle">
-                    <span>Subtitle (optional)</span>
+                    <span>Subtitle</span>
                     <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}" placeholder="Rome, 2026">
                 </label>
+            </div>
 
-                <label class="field-group" for="dedication">
-                    <span>Inside line (optional)</span>
-                    <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
-                </label>
+            <label class="field-group" for="dedication">
+                <span>Opening line</span>
+                <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
+            </label>
 
-                <button type="submit" class="btn btn-primary btn-wide" id="generate-button">Generate Magazine PDF</button>
-            </form>
-        </section>
-
-    </div>
+            <div class="generate-actions">
+                <button type="submit" class="btn btn-primary" id="generate-button">Generate Magazine PDF</button>
+                <p class="generate-note">The PDF downloads directly once generation finishes.</p>
+            </div>
+        </form>
+    </section>
 </section>
 {% endblock %}
 
@@ -253,7 +274,7 @@
             sessionId: data.sessionId || '',
             status: 'waiting_selection',
             message: 'Choose the final photos in Google Photos.',
-            detail: 'Once you press Done there, this page will unlock generation automatically.',
+            detail: 'Once you press Done there, generation unlocks automatically.',
             selectedTotal: 0,
         };
         saveSession(session);
