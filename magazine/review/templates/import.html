@@ -59,8 +59,8 @@
             </div>
 
             <ol class="source-sequence">
-                <li>Open Google sign-in.</li>
-                <li>Choose the photos for this issue.</li>
+                <li>One Google window opens.</li>
+                <li>Approve access and choose the photos for this issue in that same window.</li>
                 <li>Return here while the import finishes.</li>
             </ol>
 
@@ -121,7 +121,7 @@
                 return;
             }
             setStoredGoogleJob(data.job_id);
-            const popup = window.open(data.auth_url, '_blank', 'width=980,height=760');
+            const popup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
             if (!popup) {
                 googleResult.textContent = 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
                 return;
