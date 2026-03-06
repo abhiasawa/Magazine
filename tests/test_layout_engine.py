@@ -14,11 +14,13 @@ def _fake_photo(idx: int, hero: bool = False) -> dict:
     }
 
 
-def test_estimate_page_count_clamp_and_rounding():
-    assert estimate_page_count(photo_count=0) == 28
-    assert estimate_page_count(photo_count=30, density=1.7, fixed_pages=8, min_pages=28, max_pages=72, page_step=4) == 28
-    assert estimate_page_count(photo_count=95, density=1.7, fixed_pages=8, min_pages=28, max_pages=72, page_step=4) == 64
-    assert estimate_page_count(photo_count=999, density=1.7, fixed_pages=8, min_pages=28, max_pages=72, page_step=4) == 72
+def test_estimate_page_count_dynamic():
+    # 0 photos → just the fixed structural pages
+    assert estimate_page_count(photo_count=0) == 4
+    # 10 photos at 1.7 density → ceil(10/1.7) + 4 = 6 + 4 = 10
+    assert estimate_page_count(photo_count=10, density=1.7, fixed_pages=4) == 10
+    # 50 photos → ceil(50/1.7) + 4 = 30 + 4 = 34
+    assert estimate_page_count(photo_count=50, density=1.7, fixed_pages=4) == 34
 
 
 def test_build_layout_uses_target_pages_and_places_hero(monkeypatch):
@@ -30,8 +32,6 @@ def test_build_layout_uses_target_pages_and_places_hero(monkeypatch):
         subtitle="Sub",
         dedication="Ded",
         pages=28,
-        min_pages=28,
-        max_pages=72,
     )
 
     assert len(pages) == 28
@@ -39,12 +39,12 @@ def test_build_layout_uses_target_pages_and_places_hero(monkeypatch):
     assert {"p2", "p7", "p11"}.issubset(hero_ids)
 
 
-def test_build_layout_rounds_manual_pages(monkeypatch):
+def test_build_layout_respects_explicit_page_count(monkeypatch):
     photos = [_fake_photo(i) for i in range(20)]
     monkeypatch.setattr("magazine.layout.engine.load_approved_photos", lambda: photos)
 
     pages = build_layout(pages=31)
-    assert len(pages) == 32
+    assert len(pages) == 31
 
 
 def test_load_approved_photos_uses_pending_items(monkeypatch, tmp_path):

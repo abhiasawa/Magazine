@@ -97,27 +97,17 @@ def pick_best_photo(photos: list[dict]) -> dict | None:
 def estimate_page_count(
     photo_count: int,
     density: float = 1.7,
-    fixed_pages: int = 8,
-    min_pages: int = 28,
-    max_pages: int = 72,
-    page_step: int = 4,
+    fixed_pages: int = 4,
+    **_kwargs,
 ) -> int:
-    """Estimate dynamic page count from selected photos.
+    """Estimate page count from selected photos.
 
-    Formula:
-      raw_pages = ceil(photo_count / density) + fixed_pages
-      clamp to [min_pages, max_pages]
-      round up to signature step
+    Formula: ceil(photo_count / density) + fixed_pages
+    Purely dynamic — no min/max clamping.
     """
     if density <= 0:
         density = 1.7
-    if page_step <= 0:
-        page_step = 4
-
-    raw_pages = math.ceil(max(photo_count, 0) / density) + fixed_pages
-    clamped = min(max(raw_pages, min_pages), max_pages)
-    rounded = int(math.ceil(clamped / page_step) * page_step)
-    return min(rounded, max_pages)
+    return math.ceil(max(photo_count, 0) / density) + fixed_pages
 
 
 def _select_photo(
@@ -182,11 +172,9 @@ def build_layout(
     dedication: str = "For you, with all my love",
     style: str = "editorial_luxury",
     pages: str | int = "auto",
-    min_pages: int = 28,
-    max_pages: int = 72,
     density: float = 1.7,
-    page_step: int = 4,
-    fixed_pages: int = 8,
+    fixed_pages: int = 4,
+    **_kwargs,
 ) -> list[PageSpec]:
     """Build dynamic editorial layout from the selected photo set."""
     photos = load_approved_photos()
@@ -199,17 +187,12 @@ def build_layout(
             photo_count=len(photos),
             density=density,
             fixed_pages=fixed_pages,
-            min_pages=min_pages,
-            max_pages=max_pages,
-            page_step=page_step,
         )
     else:
         try:
             target_pages = int(pages)
         except Exception as exc:
             raise ValueError(f"Invalid pages value: {pages}") from exc
-        target_pages = max(min_pages, min(target_pages, max_pages))
-        target_pages = int(math.ceil(target_pages / page_step) * page_step)
 
     _overflow_guard(photo_count=len(photos), target_pages=target_pages)
 

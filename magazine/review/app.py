@@ -226,17 +226,11 @@ def create_app() -> Flask:
     def api_layout_estimate():
         selected_total = int(request.args.get("selected_total", 0))
         density = float(request.args.get("density", 1.7))
-        min_pages = int(request.args.get("min_pages", 28))
-        max_pages = int(request.args.get("max_pages", 72))
-        fixed_pages = int(request.args.get("fixed_pages", 8))
-        page_step = int(request.args.get("page_step", 4))
+        fixed_pages = int(request.args.get("fixed_pages", 4))
         pages = estimate_page_count(
             photo_count=selected_total,
             density=density,
             fixed_pages=fixed_pages,
-            min_pages=min_pages,
-            max_pages=max_pages,
-            page_step=page_step,
         )
         return jsonify({"success": True, "selected_total": selected_total, "estimated_pages": pages})
 
@@ -253,11 +247,8 @@ def create_app() -> Flask:
         dedication = (request.form.get("dedication") or "").strip()
         style = request.form.get("style", "editorial_luxury")
         pages = request.form.get("pages", "auto")
-        min_pages = int(request.form.get("min_pages", 28))
-        max_pages = int(request.form.get("max_pages", 72))
         density = float(request.form.get("density", 1.7))
-        page_step = int(request.form.get("page_step", 4))
-        fixed_pages = int(request.form.get("fixed_pages", 8))
+        fixed_pages = int(request.form.get("fixed_pages", 4))
         run_preflight = request.form.get("run_preflight") == "on"
         google_token = (request.form.get("google_token") or "").strip()
         google_session_id = (request.form.get("google_session_id") or "").strip()
@@ -275,11 +266,8 @@ def create_app() -> Flask:
             "heroes": [],
             "pagination": {
                 "mode": "auto" if str(pages) == "auto" else "manual",
-                "min_pages": min_pages,
-                "max_pages": max_pages,
                 "density": density,
                 "fixed_pages": fixed_pages,
-                "page_step": page_step,
             },
         }
         save_story_config(story_config)
@@ -292,10 +280,8 @@ def create_app() -> Flask:
                 dedication=dedication,
                 style=style,
                 pages=pages,
-                min_pages=min_pages,
-                max_pages=max_pages,
                 density=density,
-                page_step=page_step,
+                fixed_pages=fixed_pages,
             )
 
             from magazine.pdf.generator import generate_pdf

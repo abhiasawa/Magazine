@@ -100,11 +100,8 @@ def load_story_config() -> dict:
         "heroes": data.get("heroes", []),
         "pagination": {
             "mode": pagination.get("mode", DEFAULT_PAGINATION["mode"]),
-            "min_pages": int(pagination.get("min_pages", DEFAULT_PAGINATION["min_pages"])),
-            "max_pages": int(pagination.get("max_pages", DEFAULT_PAGINATION["max_pages"])),
             "density": float(pagination.get("density", DEFAULT_PAGINATION["density"])),
             "fixed_pages": int(pagination.get("fixed_pages", DEFAULT_PAGINATION["fixed_pages"])),
-            "page_step": int(pagination.get("page_step", DEFAULT_PAGINATION["page_step"])),
         },
     }
     return normalized

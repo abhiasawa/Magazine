@@ -83,9 +83,6 @@ TARGET_FACE_COUNT = 2
 DEFAULT_STYLE = "editorial_luxury"
 DEFAULT_PAGINATION = {
     "mode": "auto",
-    "min_pages": 28,
-    "max_pages": 72,
     "density": 1.7,
-    "fixed_pages": 8,
-    "page_step": 4,
+    "fixed_pages": 4,
 }

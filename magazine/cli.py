@@ -28,10 +28,7 @@ def web_app(port):
 @click.option("--dedication", default="", help="Opening line")
 @click.option("--style", default="editorial_luxury", help="Layout style")
 @click.option("--pages", default="auto", help="Page count: auto or explicit integer")
-@click.option("--min-pages", default=28, type=int, help="Minimum page count for auto mode")
-@click.option("--max-pages", default=72, type=int, help="Maximum page count for auto mode")
 @click.option("--density", default=1.7, type=float, help="Average photos per page target")
-@click.option("--page-step", default=4, type=int, help="Round page count to this step")
 @click.option("--output", default=None, help="Output PDF path")
 def generate_magazine(
     title,
@@ -39,10 +36,7 @@ def generate_magazine(
     dedication,
     style,
     pages,
-    min_pages,
-    max_pages,
     density,
-    page_step,
     output,
 ):
     """Generate the magazine PDF from the current imported selection."""
@@ -55,10 +49,7 @@ def generate_magazine(
         dedication=dedication,
         style=style,
         pages=pages,
-        min_pages=min_pages,
-        max_pages=max_pages,
         density=density,
-        page_step=page_step,
     )
     output_path = generate_pdf(pages_spec, output_path=output, style=style)
     click.echo(f"Magazine saved to: {output_path}")

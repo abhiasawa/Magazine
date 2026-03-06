@@ -40,36 +40,20 @@
 </section>
 
 <section class="generate-panel" id="generate-panel" hidden>
-    <h2 class="generate-heading">Give it a cover line.</h2>
-    <p class="generate-sub">A strong title and a quiet subtitle. The best covers say just enough.</p>
+    <h2 class="generate-heading">Your magazine is ready to build.</h2>
+    <p class="generate-sub">We'll lay out your photos in a print-ready editorial format. One click, nothing to configure.</p>
 
     <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
         <input type="hidden" name="google_token" id="google-token-input">
         <input type="hidden" name="google_session_id" id="google-session-input">
         <input type="hidden" name="pages" value="auto">
         <input type="hidden" name="style" value="editorial_luxury">
-        <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
-        <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
         <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
-        <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
         <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
-        <input type="hidden" name="run_preflight" value="on">
-
-        <div class="form-row">
-            <label class="field field-title" for="title">
-                <span>Cover Title</span>
-                <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
-            </label>
-            <label class="field" for="subtitle">
-                <span>Subtitle</span>
-                <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}" placeholder="Rome, 2026">
-            </label>
-        </div>
-
-        <label class="field" for="dedication">
-            <span>Opening Dedication</span>
-            <textarea id="dedication" name="dedication" placeholder="For the years we almost forgot to photograph.">{{ story_config.dedication }}</textarea>
-        </label>
+        <input type="hidden" name="run_preflight" value="">
+        <input type="hidden" name="title" value="Magazine">
+        <input type="hidden" name="subtitle" value="">
+        <input type="hidden" name="dedication" value="">
 
         <div class="form-actions">
             <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
@@ -118,9 +102,6 @@
         const params = new URLSearchParams({
             selected_total: String(selectedTotal || 0),
             density: '{{ story_config.pagination.density }}',
-            min_pages: '{{ story_config.pagination.min_pages }}',
-            max_pages: '{{ story_config.pagination.max_pages }}',
-            page_step: '{{ story_config.pagination.page_step }}',
             fixed_pages: '{{ story_config.pagination.fixed_pages }}',
         });
         const res = await fetch(`/api/layout/estimate?${params.toString()}`);

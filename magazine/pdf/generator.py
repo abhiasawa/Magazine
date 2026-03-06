@@ -165,7 +165,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.rect(0, 0, W, H, fill=1, stroke=0)
 
     def _draw_image_fill(photo, x, y, w, h):
-        """Draw a photo scaled to fill the given box (cover-fit)."""
+        """Draw full photo scaled to fit inside the box (contain-fit, no cropping)."""
         path = _photo_path(photo)
         if not path:
             return
@@ -173,18 +173,13 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             from PIL import Image as PILImage
             with PILImage.open(path) as img:
                 iw, ih = img.size
-            scale = max(w / iw, h / ih)
+            scale = min(w / iw, h / ih)
             draw_w = iw * scale
             draw_h = ih * scale
             offset_x = x + (w - draw_w) / 2
             offset_y = y + (h - draw_h) / 2
-            c.saveState()
-            p = c.beginPath()
-            p.rect(x, y, w, h)
-            c.clipPath(p, stroke=0)
             c.drawImage(str(path), offset_x, offset_y, draw_w, draw_h,
                         preserveAspectRatio=False)
-            c.restoreState()
         except Exception:
             try:
                 c.drawImage(str(path), x, y, w, h, preserveAspectRatio=True)
