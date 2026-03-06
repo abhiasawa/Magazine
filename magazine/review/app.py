@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import uuid
 from pathlib import Path
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, url_for
@@ -29,6 +30,11 @@ from magazine.services.state import (
 from magazine.sources.google_picker import GooglePhotoPicker
 
 logger = logging.getLogger(__name__)
+
+
+def _google_verifier_cookie_name(state: str) -> str:
+    safe_state = "".join(ch for ch in state if ch.isalnum() or ch in {"-", "_"})
+    return f"magazine_google_verifier_{safe_state}"
 
 
 def _reset_workspace():
@@ -133,30 +139,52 @@ def create_app() -> Flask:
             ), 400
 
         picker = GooglePhotoPicker()
-        auth_url = picker.get_auth_url(
-            state="magazine-google",
+        state = uuid.uuid4().hex
+        auth_url, code_verifier = picker.start_auth(
+            state=state,
             redirect_uri=current_google_callback_uri(),
         )
-        return jsonify({"success": True, "auth_url": auth_url})
+        response = jsonify({"success": True, "auth_url": auth_url})
+        response.set_cookie(
+            _google_verifier_cookie_name(state),
+            code_verifier,
+            max_age=15 * 60,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+        )
+        return response
 
     @app.route("/api/import/google/callback")
     @app.route("/oauth/callback")
     def api_import_google_callback():
         picker = GooglePhotoPicker()
+        state = (request.args.get("state") or "").strip()
+        code_verifier = request.cookies.get(_google_verifier_cookie_name(state), "")
         try:
-            picker.handle_callback(request.url, redirect_uri=current_google_callback_uri())
+            if not code_verifier:
+                raise ValueError("Missing Google sign-in session. Start the Google Photos flow again.")
+            picker.handle_callback(
+                request.url,
+                redirect_uri=current_google_callback_uri(),
+                code_verifier=code_verifier,
+            )
             picker_uri = picker.create_session()
         except Exception as exc:
             logger.exception("google_auth_failed")
             return f"Google auth failed: {exc}", 500
 
-        return render_template(
+        response = render_template(
             "google_callback.html",
             picker_uri=picker_uri,
             google_token=picker.credentials.token,
             google_session_id=picker.session_id,
-            google_state=request.args.get("state", ""),
+            google_state=state,
         )
+        final_response = app.make_response(response)
+        if state:
+            final_response.delete_cookie(_google_verifier_cookie_name(state))
+        return final_response
 
     @app.route("/api/google/status", methods=["POST"])
     def api_google_status():

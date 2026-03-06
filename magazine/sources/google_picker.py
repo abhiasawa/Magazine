@@ -62,16 +62,21 @@ class GooglePhotoPicker:
             }
         }
 
-    def _build_flow(self, redirect_uri: str | None = None) -> Flow:
+    def _build_flow(self, redirect_uri: str | None = None, code_verifier: str | None = None) -> Flow:
         final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
         client_config = self._client_config(final_redirect_uri)
-        flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=GOOGLE_SCOPES,
+            code_verifier=code_verifier,
+            autogenerate_code_verifier=code_verifier is None,
+        )
         flow.redirect_uri = final_redirect_uri
         self.flow = flow
         return flow
 
-    def get_auth_url(self, state: str | None = None, redirect_uri: str | None = None) -> str:
-        """Generate OAuth authorization URL."""
+    def start_auth(self, state: str | None = None, redirect_uri: str | None = None) -> tuple[str, str]:
+        """Generate OAuth authorization URL and return its PKCE code verifier."""
         final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
         flow = self._build_flow(final_redirect_uri)
 
@@ -81,12 +86,19 @@ class GooglePhotoPicker:
             prompt="consent",
             state=state,
         )
-        return auth_url
+        if not flow.code_verifier:
+            raise click.ClickException("Google OAuth code verifier was not generated.")
+        return auth_url, flow.code_verifier
 
-    def handle_callback(self, authorization_response: str, redirect_uri: str | None = None):
+    def handle_callback(
+        self,
+        authorization_response: str,
+        redirect_uri: str | None = None,
+        code_verifier: str | None = None,
+    ):
         """Exchange authorization code for credentials."""
         if self.flow is None:
-            self._build_flow(redirect_uri)
+            self._build_flow(redirect_uri, code_verifier=code_verifier)
         self.flow.fetch_token(authorization_response=authorization_response)
         self.credentials = self.flow.credentials
 
