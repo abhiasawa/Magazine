@@ -9,7 +9,18 @@ load_dotenv()
 
 # Base paths
 PROJECT_ROOT = Path(__file__).parent.parent
-WORKSPACE = PROJECT_ROOT / "workspace"
+
+
+def _workspace_root() -> Path:
+    override = os.getenv("MAGAZINE_WORKSPACE", "").strip()
+    if override:
+        return Path(override).expanduser()
+    if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+        return Path("/tmp/magazine-workspace")
+    return PROJECT_ROOT / "workspace"
+
+
+WORKSPACE = _workspace_root()
 ORIGINALS_DIR = WORKSPACE / "originals"
 THUMBNAILS_DIR = WORKSPACE / "thumbnails"
 PRINT_DIR = WORKSPACE / "print"
@@ -23,6 +34,9 @@ for d in [ORIGINALS_DIR, THUMBNAILS_DIR, PRINT_DIR, OUTPUT_DIR]:
 PHOTOS_MANIFEST = WORKSPACE / "photos.json"
 FACE_RESULTS = WORKSPACE / "face_results.json"
 REVIEW_STATE = WORKSPACE / "review_state.json"
+STORY_CONFIG = WORKSPACE / "story_config.json"
+PREFLIGHT_REPORT = OUTPUT_DIR / "preflight_report.json"
+PHOTO_HASHES = WORKSPACE / "photo_hashes.json"
 
 # Image settings
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".tif"}
@@ -47,7 +61,7 @@ FULL_BLEED_HEIGHT_PX = int(MEDIA_HEIGHT_MM / 25.4 * PRINT_DPI)  # ~3579px
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5000/oauth/callback")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 GOOGLE_SCOPES = ["https://www.googleapis.com/auth/photospicker.mediaitems.readonly"]
 PICKER_API_BASE = "https://photospicker.googleapis.com/v1"
 
@@ -64,3 +78,14 @@ COLORS = {
 # Face detection
 FACE_DETECTOR_BACKEND = "retinaface"
 TARGET_FACE_COUNT = 2
+
+# Dynamic pagination defaults
+DEFAULT_STYLE = "editorial_luxury"
+DEFAULT_PAGINATION = {
+    "mode": "auto",
+    "min_pages": 28,
+    "max_pages": 72,
+    "density": 1.7,
+    "fixed_pages": 8,
+    "page_step": 4,
+}

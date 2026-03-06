@@ -1,0 +1,11 @@
+.git
+.gitignore
+.pytest_cache
+.dylibs
+AGENTS.md
+CLAUDE.md
+sample_photos
+tests
+workspace
+generate_sample_minions.py
+run_sample.py

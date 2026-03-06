@@ -1,63 +1,79 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div data-page="{{ page_type }}">
+<section class="panel" data-page="{{ page_type }}">
+    <div class="section-heading">
+        <p class="eyebrow">Step 2</p>
+        <h3>{{ 'Choose the frames that deserve the magazine.' if page_type == 'candidates' else 'Review the supporting images.' }}</h3>
+        <p class="subtitle compact-subtitle">{{ 'Keep the best moments, skip the weak ones, and mark standout images as hero spreads.' if page_type == 'candidates' else 'These are the extra photos outside the main candidate set.' }}</p>
+    </div>
 
-    <div class="stats-bar">
-        <div class="stat">
-            <span class="stat-number" data-count="approved">{{ counts.approved }}</span>
-            <span class="stat-label">Approved</span>
+    <div class="review-topbar">
+        <div class="view-switch">
+            <a class="chip {{ 'active' if page_type == 'candidates' else '' }}" href="{{ url_for('review_candidates') }}">Main Review</a>
+            <a class="chip {{ 'active' if page_type == 'others' else '' }}" href="{{ url_for('review_others') }}">Other Photos</a>
         </div>
-        <div class="stat">
-            <span class="stat-number" data-count="rejected">{{ counts.rejected }}</span>
-            <span class="stat-label">Rejected</span>
-        </div>
-        <div class="stat">
-            <span class="stat-number" data-count="total">{{ counts.total }}</span>
-            <span class="stat-label">Total Photos</span>
-        </div>
+    </div>
+
+    <div class="stats-bar compact">
+        <div class="stat"><span class="stat-number" data-count="approved">{{ counts.approved }}</span><span class="stat-label">Approved</span></div>
+        <div class="stat"><span class="stat-number" data-count="pending">{{ counts.pending }}</span><span class="stat-label">Pending</span></div>
+        <div class="stat"><span class="stat-number" data-count="hero">{{ counts.hero }}</span><span class="stat-label">Hero Pins</span></div>
     </div>
 
     <div class="controls">
-        <button class="btn btn-primary" onclick="batchAction('approve_all')">
-            Approve All on Page
-        </button>
-        <button class="btn btn-danger" onclick="batchAction('reject_all')">
-            Reject All on Page
-        </button>
+        <button class="btn btn-primary" onclick="batchAction('approve_all', '{{ page_type }}')">Approve All on Page</button>
+        <button class="btn btn-danger" onclick="batchAction('reject_all', '{{ page_type }}')">Reject All on Page</button>
+        <div class="filter-group">
+            <a class="chip {{ 'active' if active_filter == 'all' else '' }}" href="?filter=all">All</a>
+            <a class="chip {{ 'active' if active_filter == 'approved' else '' }}" href="?filter=approved">Approved</a>
+            <a class="chip {{ 'active' if active_filter == 'pending' else '' }}" href="?filter=pending">Pending</a>
+            <a class="chip {{ 'active' if active_filter == 'rejected' else '' }}" href="?filter=rejected">Rejected</a>
+            <a class="chip {{ 'active' if active_filter == 'hero' else '' }}" href="?filter=hero">Hero Pins</a>
+        </div>
     </div>
+
+    <p class="shortcut-hint">Keyboard shortcuts: <kbd>J</kbd> keep, <kbd>K</kbd> skip, <kbd>H</kbd> mark as hero.</p>
 
     {% if photos %}
     <div class="photo-grid">
         {% for photo in photos %}
-        <div class="photo-card {{ photo.status }}" id="card-{{ photo.id }}">
-            <img
-                src="/thumbnail/{{ photo.id }}"
-                alt="Photo {{ photo.id }}"
-                loading="lazy"
-                onclick="openLightbox('/original/{{ photo.id }}')"
-            >
+        <article class="photo-card {{ photo.status }} {{ 'hero' if photo.hero_pin else '' }}" id="card-{{ photo.id }}" data-photo-id="{{ photo.id }}">
+            <img src="/thumbnail/{{ photo.id }}" alt="Photo {{ photo.id }}" loading="lazy" onclick="openLightbox('/original/{{ photo.id }}')">
             <div class="photo-info">
                 <span class="photo-date">{{ photo.date or 'No date' }}</span>
                 <span class="photo-faces">{{ photo.face_count }} face{{ 's' if photo.face_count != 1 }}</span>
             </div>
             <div class="photo-actions">
-                <button class="btn btn-primary" onclick="togglePhoto('{{ photo.id }}', 'approve')">
-                    ♥ Keep
-                </button>
-                <button class="btn btn-danger" onclick="togglePhoto('{{ photo.id }}', 'reject')">
-                    ✕ Skip
-                </button>
+                <button class="btn btn-primary" onclick="togglePhoto('{{ photo.id }}', 'approve')">Keep</button>
+                <button class="btn btn-danger" onclick="togglePhoto('{{ photo.id }}', 'reject')">Skip</button>
+                <button class="btn btn-gold pin-btn" onclick="toggleHero('{{ photo.id }}', !document.getElementById('card-{{ photo.id }}').classList.contains('hero'), document.getElementById('caption-{{ photo.id }}').value)">{{ '★ Hero' if photo.hero_pin else '☆ Hero' }}</button>
             </div>
-        </div>
+            <div class="caption-wrap">
+                <input id="caption-{{ photo.id }}" class="caption-input" type="text" placeholder="Optional spread caption" value="{{ photo.caption }}" onblur="toggleHero('{{ photo.id }}', document.getElementById('card-{{ photo.id }}').classList.contains('hero'), this.value)">
+            </div>
+        </article>
         {% endfor %}
     </div>
     {% else %}
     <div class="empty-state">
-        <h3>No photos here</h3>
-        <p>{% if page_type == 'candidates' %}No photos with 2 faces were detected. Check the "Other Photos" tab.{% else %}All photos matched the 2-face filter!{% endif %}</p>
+        <h3>No photos in this filter</h3>
+        <p>Try another filter or import more photos.</p>
     </div>
     {% endif %}
 
-</div>
+    <div class="step-footer">
+        <div>
+            <p class="step-footer-label">Next</p>
+            <p class="step-footer-copy">
+                {% if counts.approved > 0 %}
+                Your approved frames are ready for the story and export settings.
+                {% else %}
+                Approve the photos you want to keep before moving into generation.
+                {% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('summary') }}" class="btn btn-primary {{ '' if counts.approved > 0 else 'btn-disabled-link' }}">Continue to Generate</a>
+    </div>
+</section>
 {% endblock %}

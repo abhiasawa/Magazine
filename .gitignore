@@ -1,11 +1,8 @@
-workspace/originals/
-workspace/thumbnails/
-workspace/print/
-workspace/photos.json
-workspace/face_results.json
-workspace/review_state.json
+workspace/
+.vercel/
 *.pyc
 __pycache__/
+.pytest_cache/
 *.egg-info/
 dist/
 build/
@@ -16,3 +13,5 @@ venv/
 .venv/
 token.json
 credentials.json
+.dylibs/
+.vercel

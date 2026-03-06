@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel import-stage">
+    <div class="section-heading">
+        <p class="eyebrow">Step 1</p>
+        <h3>Start by importing your photos.</h3>
+        <p class="subtitle compact-subtitle">Choose one source, wait for the photos to land here, then move to review.</p>
+    </div>
+
+    <div class="step-summary">
+        <div class="step-summary-item"><span class="step-summary-number" data-count="total">{{ counts.total }}</span><span class="step-summary-label">Imported</span></div>
+        <div class="step-summary-item"><span class="step-summary-number" data-count="approved">{{ counts.approved }}</span><span class="step-summary-label">Approved</span></div>
+        <div class="step-summary-item"><span class="step-summary-number" data-count="hero">{{ counts.hero }}</span><span class="step-summary-label">Hero Pins</span></div>
+    </div>
+
+    <div class="import-grid import-grid-premium">
+        <article class="import-card import-card-local">
+            <div class="import-card-header">
+                <p class="source-kicker">From This Computer</p>
+                <h4>Upload from your laptop or a full folder</h4>
+            </div>
+            <p class="import-copy">Choose files or a folder. Duplicate shots are skipped automatically.</p>
+
+            <form id="local-upload-form" class="upload-form" enctype="multipart/form-data">
+                <label class="dropzone dropzone-luxury" for="photos-input">
+                    <input type="file" id="photos-input" name="photos" accept="image/*" multiple webkitdirectory directory>
+                    <span class="dropzone-icon">+</span>
+                    <strong>Drop photos here</strong>
+                    <span>Select files or an entire folder</span>
+                </label>
+                <button type="submit" class="btn btn-primary btn-wide">Import Local Photos</button>
+            </form>
+
+            <div class="import-result import-result-prominent" id="local-result"></div>
+        </article>
+
+        <article class="import-card import-card-google {{ '' if google_configured else 'import-card-disabled' }}">
+            <div class="import-card-header">
+                <p class="source-kicker">From Google Photos</p>
+                <h4>Connect your library in one browser flow</h4>
+            </div>
+            <p class="import-copy">{{ google_status_message }}</p>
+
+            <div class="source-steps">
+                <div class="source-step">
+                    <span>1</span>
+                    <p>Open the Google sign-in window.</p>
+                </div>
+                <div class="source-step">
+                    <span>2</span>
+                    <p>Choose the photos you want in the magazine.</p>
+                </div>
+                <div class="source-step">
+                    <span>3</span>
+                    <p>Come back here while everything imports automatically.</p>
+                </div>
+            </div>
+
+            {% if google_configured %}
+            <button id="google-start" class="btn btn-gold btn-wide">Connect Google Photos</button>
+            {% else %}
+            <button class="btn btn-muted btn-wide" disabled>Google Photos Not Available Yet</button>
+            {% endif %}
+
+            <div class="import-result import-result-prominent" id="google-result">
+                {% if not google_configured %}
+                This demo can still be tried right now with local upload.
+                {% endif %}
+            </div>
+        </article>
+    </div>
+
+    <div class="step-footer">
+        <div>
+            <p class="step-footer-label">Next</p>
+            <p class="step-footer-copy">
+                {% if counts.total > 0 %}
+                Move into review once your photos have finished importing.
+                {% else %}
+                Start with one source. You can come back here any time to add more photos.
+                {% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('review_candidates') }}" class="btn btn-primary {{ '' if counts.total > 0 else 'btn-disabled-link' }}">Continue to Review</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const localForm = document.getElementById('local-upload-form');
+    const localResult = document.getElementById('local-result');
+    const googleStart = document.getElementById('google-start');
+    const googleResult = document.getElementById('google-result');
+
+    if (localForm) {
+        localForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const formData = new FormData(localForm);
+            localResult.textContent = 'Importing your selection...';
+            try {
+                const res = await fetch('/api/import/local', {method: 'POST', body: formData});
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Import failed');
+                localResult.textContent = `Imported ${data.imported} of ${data.total} files. ${data.skipped} duplicates were skipped automatically.`;
+                updateCounts();
+            } catch (err) {
+                localResult.textContent = err.message;
+            }
+        });
+    }
+
+    let googleJobId = null;
+    let googlePollInterval = null;
+
+    async function pollGoogleJob() {
+        if (!googleJobId) return;
+        const res = await fetch(`/api/import/jobs/${googleJobId}`);
+        const data = await res.json();
+        if (!data.success) {
+            googleResult.textContent = data.error || 'Google import could not be found.';
+            clearInterval(googlePollInterval);
+            return;
+        }
+
+        const details = [data.message || data.status];
+        if (data.imported !== undefined) {
+            details.push(`Imported ${data.imported} photos`);
+            if (data.skipped) {
+                details.push(`${data.skipped} duplicates skipped`);
+            }
+        }
+        googleResult.textContent = details.join(' • ');
+
+        if (data.status === 'done' || data.status === 'error') {
+            clearInterval(googlePollInterval);
+            updateCounts();
+        }
+    }
+
+    if (googleStart) {
+        googleStart.addEventListener('click', async () => {
+            googleResult.textContent = 'Opening Google sign-in...';
+            const res = await fetch('/api/import/google/start', {method: 'POST'});
+            const data = await res.json();
+            if (!data.success) {
+                googleResult.textContent = data.error;
+                return;
+            }
+            googleJobId = data.job_id;
+            const popup = window.open(data.auth_url, '_blank', 'width=980,height=760');
+            if (!popup) {
+                googleResult.textContent = 'Your browser blocked the Google window. Please allow pop-ups for this site and try again.';
+                return;
+            }
+            googleResult.textContent = 'Waiting for Google approval...';
+            googlePollInterval = setInterval(pollGoogleJob, 2500);
+        });
+    }
+</script>
+{% endblock %}

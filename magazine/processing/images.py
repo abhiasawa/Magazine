@@ -1,8 +1,11 @@
 """Image processing utilities: HEIC conversion, EXIF rotation, thumbnails, print resize."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from PIL import Image, ExifTags
+from PIL import ImageEnhance
 
 from magazine.config import (
     THUMBNAIL_SIZE,
@@ -82,7 +85,22 @@ def make_thumbnail(src: Path, dest_dir: Path) -> Path:
     return dest
 
 
-def make_print_image(src: Path, dest_dir: Path, target_width: int = None, target_height: int = None) -> Path:
+def _apply_gentle_grade(img: Image.Image) -> Image.Image:
+    """Apply subtle editorial color treatment for cross-spread consistency."""
+    img = ImageEnhance.Color(img).enhance(1.04)
+    img = ImageEnhance.Contrast(img).enhance(1.03)
+    img = ImageEnhance.Brightness(img).enhance(1.01)
+    return img
+
+
+def make_print_image(
+    src: Path,
+    dest_dir: Path,
+    target_width: int = None,
+    target_height: int = None,
+    focal_point: tuple[float, float] | None = None,
+    filename: str | None = None,
+) -> Path:
     """Resize image for print at 300 DPI. Covers the target area (crop to fill)."""
     if target_width is None:
         target_width = FULL_BLEED_WIDTH_PX
@@ -94,6 +112,7 @@ def make_print_image(src: Path, dest_dir: Path, target_width: int = None, target
 
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
+    img = _apply_gentle_grade(img)
 
     # Cover: scale to fill target, then center-crop
     src_ratio = img.width / img.height
@@ -110,12 +129,22 @@ def make_print_image(src: Path, dest_dir: Path, target_width: int = None, target
 
     img = img.resize((new_width, new_height), Image.LANCZOS)
 
-    # Center crop
-    left = (new_width - target_width) // 2
-    top = (new_height - target_height) // 2
+    # Focus-aware crop where focal point is normalized (0..1, 0..1).
+    if focal_point:
+        fx = min(max(float(focal_point[0]), 0.0), 1.0)
+        fy = min(max(float(focal_point[1]), 0.0), 1.0)
+        focus_x = int(new_width * fx)
+        focus_y = int(new_height * fy)
+        left = max(0, min(new_width - target_width, focus_x - target_width // 2))
+        top = max(0, min(new_height - target_height, focus_y - target_height // 2))
+    else:
+        left = (new_width - target_width) // 2
+        top = (new_height - target_height) // 2
+
     img = img.crop((left, top, left + target_width, top + target_height))
 
-    dest = dest_dir / (src.stem + ".jpg")
+    name = filename or src.stem
+    dest = dest_dir / f"{name}.jpg"
     img.save(dest, "JPEG", quality=JPEG_QUALITY, dpi=(PRINT_DPI, PRINT_DPI))
     return dest
 

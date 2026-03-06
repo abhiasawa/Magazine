@@ -10,17 +10,22 @@ setup(
         "python-dotenv",
         "Pillow>=10.0",
         "pillow-heif",
-        "deepface",
-        "tf-keras",
         "flask>=3.0",
         "werkzeug",
-        "weasyprint>=62",
         "Jinja2>=3.0",
         "google-auth",
         "google-auth-oauthlib",
         "requests",
         "tqdm",
+        "pypdf",
     ],
+    extras_require={
+        "local": [
+            "deepface",
+            "tf-keras",
+            "weasyprint>=62",
+        ],
+    },
     entry_points={
         "console_scripts": [
             "magazine=magazine.cli:cli",

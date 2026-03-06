@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Photos Connected</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #f5efe6;
+            --ink: #201914;
+            --soft: #6f6257;
+            --card: rgba(255, 255, 255, 0.88);
+            --line: rgba(92, 72, 53, 0.16);
+            --accent: #5e4430;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background:
+                radial-gradient(circle at top left, rgba(210, 186, 160, 0.45), transparent 35%),
+                radial-gradient(circle at bottom right, rgba(120, 90, 66, 0.18), transparent 42%),
+                linear-gradient(180deg, #f8f3ec 0%, var(--bg) 100%);
+            color: var(--ink);
+            font-family: "Manrope", system-ui, sans-serif;
+        }
+
+        .callback-shell {
+            width: min(760px, 100%);
+            border-radius: 28px;
+            padding: 28px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            box-shadow: 0 30px 80px rgba(39, 26, 16, 0.12);
+            backdrop-filter: blur(14px);
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            font-size: 12px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: var(--soft);
+        }
+
+        h1 {
+            margin: 0;
+            font-family: "Cormorant Garamond", Georgia, serif;
+            font-size: clamp(36px, 7vw, 56px);
+            line-height: 0.95;
+            font-weight: 600;
+        }
+
+        .lede {
+            margin: 16px 0 0;
+            max-width: 46ch;
+            color: var(--soft);
+            line-height: 1.7;
+        }
+
+        .steps {
+            display: grid;
+            gap: 12px;
+            margin: 24px 0;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: 42px 1fr;
+            gap: 14px;
+            align-items: start;
+            padding: 14px 16px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid var(--line);
+        }
+
+        .step-number {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            background: #f0e4d5;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .step p {
+            margin: 0;
+            color: var(--soft);
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 52px;
+            padding: 0 22px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #705239 0%, #402c1e 100%);
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .note {
+            color: var(--soft);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <main class="callback-shell">
+        <p class="eyebrow">Google Photos Connected</p>
+        <h1>Your library is ready.</h1>
+        <p class="lede">Open Google Photos, choose the images you want, then return to the main magazine studio. Your import will continue automatically in the background.</p>
+
+        <section class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <p>Open the Google Photos picker in a new window.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <p>Select the photos you want in the magazine.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <p>Return to the studio tab and wait for the import status to finish.</p>
+            </div>
+        </section>
+
+        <div class="actions">
+            <a class="btn" href="{{ picker_uri }}" target="_blank">Open Google Photos</a>
+            <span class="note">You can close this page after you have opened the picker.</span>
+        </div>
+    </main>
+</body>
+</html>

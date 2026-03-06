@@ -1,8 +1,6 @@
 """Face detection pipeline using DeepFace."""
 
 import json
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
 
 import click
 from tqdm import tqdm
@@ -14,13 +12,17 @@ from magazine.config import (
     FACE_DETECTOR_BACKEND,
     TARGET_FACE_COUNT,
 )
+from magazine.services.state import load_review_state, save_review_state, normalize_review_entry
 
 
-def count_faces_in_photo(photo_path: str) -> int:
-    """Detect and count faces in a single photo.
+def detect_faces_in_photo(photo_path: str) -> dict:
+    """Detect faces in a single photo.
 
-    Uses DeepFace with configurable backend.
-    Returns number of faces detected.
+    Returns:
+      {
+        "face_count": int,
+        "faces": [{"x": int, "y": int, "w": int, "h": int, "confidence": float}],
+      }
     """
     try:
         from deepface import DeepFace
@@ -30,25 +32,44 @@ def count_faces_in_photo(photo_path: str) -> int:
             detector_backend=FACE_DETECTOR_BACKEND,
             enforce_detection=False,
         )
-        # Filter out low-confidence detections
-        confident_faces = [f for f in faces if f.get("confidence", 0) > 0.5]
-        return len(confident_faces)
+
+        extracted = []
+        for face in faces:
+            confidence = float(face.get("confidence", 0.0))
+            area = face.get("facial_area") or {}
+            extracted.append(
+                {
+                    "x": int(area.get("x", 0)),
+                    "y": int(area.get("y", 0)),
+                    "w": int(area.get("w", 0)),
+                    "h": int(area.get("h", 0)),
+                    "confidence": confidence,
+                }
+            )
+
+        confident_faces = [f for f in extracted if f["confidence"] > 0.5]
+        return {
+            "face_count": len(confident_faces),
+            "faces": confident_faces,
+        }
     except Exception:
-        return -1  # Error indicator
+        return {"face_count": -1, "faces": []}
 
 
-def _process_single(args: tuple) -> tuple[str, int]:
-    """Worker function for parallel processing."""
-    photo_id, photo_path = args
-    count = count_faces_in_photo(photo_path)
-    return photo_id, count
+def _face_count(value) -> int:
+    if isinstance(value, dict):
+        return int(value.get("face_count", -1))
+    try:
+        return int(value)
+    except Exception:
+        return -1
 
 
 def run_face_detection():
     """Run face detection on all imported photos.
 
     Produces:
-    - face_results.json: face count per photo
+    - face_results.json: face count + face boxes per photo
     - review_state.json: initial review state (2-face = pre-approved)
     """
     if not PHOTOS_MANIFEST.exists():
@@ -59,38 +80,35 @@ def run_face_detection():
 
     click.echo(f"Detecting faces in {len(photos)} photos...")
 
-    # Prepare work items
-    work = [(p["id"], p["original"]) for p in photos]
     results = {}
+    for photo in tqdm(photos, desc="Face detection"):
+        results[photo["id"]] = detect_faces_in_photo(photo["original"])
 
-    # Process with progress bar (sequential to avoid DeepFace model loading issues)
-    for item in tqdm(work, desc="Face detection"):
-        photo_id, count = _process_single(item)
-        results[photo_id] = count
-
-    # Save face results
     with open(FACE_RESULTS, "w") as f:
         json.dump(results, f, indent=2)
 
-    # Create initial review state
+    review_state = load_review_state()
     candidates = 0
     others = 0
-    review_state = {}
-    for photo_id, face_count in results.items():
+    errors = 0
+    for photo_id, payload in results.items():
+        face_count = _face_count(payload)
+        entry = review_state.get(photo_id, normalize_review_entry("pending"))
         if face_count == TARGET_FACE_COUNT:
-            review_state[photo_id] = "approved"
+            entry["status"] = "approved"
             candidates += 1
         elif face_count < 0:
-            review_state[photo_id] = "error"
+            entry["status"] = "error"
+            errors += 1
         else:
-            review_state[photo_id] = "rejected"
+            entry["status"] = "rejected"
             others += 1
+        review_state[photo_id] = entry
 
-    with open(REVIEW_STATE, "w") as f:
-        json.dump(review_state, f, indent=2)
+    save_review_state(review_state)
 
-    click.echo(f"\nResults:")
+    click.echo("\nResults:")
     click.echo(f"  Candidates (2 faces, pre-approved): {candidates}")
     click.echo(f"  Others (different face count): {others}")
-    click.echo(f"  Errors: {sum(1 for v in results.values() if v < 0)}")
-    click.echo(f"\nRun 'magazine review' to review and adjust selections.")
+    click.echo(f"  Errors: {errors}")
+    click.echo("\nRun 'magazine review' to review and adjust selections.")

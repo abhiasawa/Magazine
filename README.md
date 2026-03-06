@@ -1,40 +1,41 @@
 # Photo Magazine Generator
 
-Create beautiful, print-ready photo magazines from your photos. Perfect for gifting — automatically filters couple photos using face detection, lets you curate via a web UI, and generates a stunning warm & romantic PDF magazine with love quotes.
+Create beautiful photo magazines from your photos. Import from local or Google Photos, curate in a premium web UI, and generate dynamic-page editorial layouts ready for print export.
 
 ## Features
 
-- **Photo Import**: Local folder or Google Photos Picker API
-- **Smart Face Detection**: Automatically finds photos with exactly 2 people using DeepFace
-- **Beautiful Review UI**: Web-based photo curation portal with approve/reject controls
-- **Romantic Magazine Design**: Warm cream, blush & rose gold palette with elegant typography
-- **8 Page Templates**: Cover, dedication, full-bleed, two-photo spread, three-photo grid, quote pages, photo+quote overlay, back cover
-- **30+ Love Quotes**: Curated romantic quotes woven throughout the magazine
-- **Print-Ready PDF**: A4 size, 300 DPI, 3mm bleed — ready for professional printing
+- **Unified Web Workflow**: `Import -> Review -> Story -> Generate -> Preflight`
+- **Dual Import Sources**: Upload from local machine or sync from Google Photos Picker API
+- **Dynamic Pagination**: Auto page count based on approved photos (defaults: 28-72 pages, rounded to print signatures)
+- **Hero Pinning**: Mark must-have photos for premium spread placement
+- **Editorial Luxury Mode**: Soft luxury print layout with multiple spread templates
+- **Manual Curation First**: Face detection is optional; you can simply approve the right photos yourself
+- **Preflight Checks**: Generate `preflight_report.json` and optional proof PNG renders
+- **Print-Ready PDF**: A4 size, 300 DPI, 3mm bleed output
 
 ## Quick Start
 
 ```bash
-# Install
+# Install the hosted/manual-review workflow
 pip install -e .
 
-# Import photos from a local folder
+# Optional: add local-only PDF and face-detection dependencies
+pip install -r requirements-local.txt
+
+# Launch the web app (recommended)
+magazine web
+
+# Optional CLI workflow
 magazine import --source local --path ~/Photos/us
-
-# Detect faces (filters to couple-only photos)
 magazine detect
-
-# Review candidates in your browser
-magazine review
-
-# Generate the magazine PDF
-magazine generate --title "Our Love Story" --dedication "To my beautiful wife..."
+magazine generate --style editorial_luxury --pages auto --min-pages 28 --max-pages 72
+magazine preflight --pdf workspace/output/magazine.pdf
 ```
 
 ## One-Command Pipeline
 
 ```bash
-magazine create --source local --path ~/Photos/us --title "Our Love Story"
+magazine create --source local --path ~/Photos/us --style editorial_luxury --pages auto
 ```
 
 ## Google Photos Setup
@@ -49,10 +50,21 @@ magazine create --source local --path ~/Photos/us --title "Our Love Story"
 magazine import --source google
 ```
 
+Or use the web UI import screen, which supports both local upload and Google sync.
+
+## Vercel Deployment
+
+The repository includes a root `app.py` Flask entrypoint and `vercel.json`, so it can be deployed directly on Vercel.
+
+Important constraints:
+- Vercel uses ephemeral server storage, so imported photos and generated artifacts are not durable across deploys or cold starts.
+- Google Photos requires production OAuth credentials and the deployed callback URL to be added in Google Cloud.
+- PDF export and face detection are better treated as local features unless you add hosted rendering/storage services.
+
 ## Requirements
 
 - Python 3.10+
-- System dependencies for WeasyPrint (see [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html)):
+- Optional system dependencies for WeasyPrint (see [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html)):
   - **Linux**: `sudo apt install libpango1.0-dev libcairo2-dev libgdk-pixbuf2.0-dev`
   - **macOS**: `brew install pango cairo libffi`
 

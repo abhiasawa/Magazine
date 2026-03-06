@@ -3,24 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title | default('Photo Magazine') }} - Review Portal</title>
+    <title>{{ title | default('Photo Magazine Studio') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Photo Magazine</h1>
-        <p>Curate Your Love Story</p>
+    <div class="site-bg"></div>
+    <div class="site-noise"></div>
+    <header class="site-header">
+        <div class="header-inner">
+            <p class="eyebrow">Editorial Magazine Studio</p>
+            <h1>The Keepsake Issue</h1>
+            <p class="tagline">A guided build from photo import to print-ready magazine.</p>
+        </div>
     </header>
 
-    <nav>
-        <a href="{{ url_for('review_candidates') }}" class="{{ 'active' if active_page == 'candidates' }}">
-            Candidates ♥
+    <nav class="site-nav site-steps">
+        <a href="{{ url_for('import_screen') }}" class="step-link {{ 'active' if active_page == 'import' }}">
+            <span class="step-index">1</span>
+            <span class="step-copy">
+                <strong>Import</strong>
+                <span>Bring photos in</span>
+            </span>
         </a>
-        <a href="{{ url_for('review_others') }}" class="{{ 'active' if active_page == 'others' }}">
-            Other Photos
+        <a href="{{ url_for('review_candidates') }}" class="step-link {{ 'active' if active_page in ['review', 'others'] }}">
+            <span class="step-index">2</span>
+            <span class="step-copy">
+                <strong>Review</strong>
+                <span>Choose the keepers</span>
+            </span>
         </a>
-        <a href="{{ url_for('summary') }}" class="{{ 'active' if active_page == 'summary' }}">
-            Summary & Generate
+        <a href="{{ url_for('summary') }}" class="step-link {{ 'active' if active_page == 'summary' }}">
+            <span class="step-index">3</span>
+            <span class="step-copy">
+                <strong>Generate</strong>
+                <span>Set story and export</span>
+            </span>
         </a>
     </nav>
 
@@ -32,19 +49,22 @@
         {% endif %}
     {% endwith %}
 
-    {% block content %}{% endblock %}
+    <main class="page-wrap">
+        {% block content %}{% endblock %}
+    </main>
 
-    <!-- Lightbox -->
     <div class="lightbox" id="lightbox" onclick="closeLightbox()">
         <span class="lightbox-close">&times;</span>
-        <img id="lightbox-img" src="" alt="Full size">
+        <img id="lightbox-img" src="" alt="Full size photo">
     </div>
 
     <footer>
-        <p>Made with <span class="heart">♥</span> for your love story</p>
+        <p>Crafted for heirloom-quality print magazines.</p>
     </footer>
 
     <script>
+        window.activeCardId = null;
+
         function togglePhoto(photoId, action) {
             fetch('/api/toggle', {
                 method: 'POST',
@@ -53,21 +73,40 @@
             })
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
-                    const card = document.getElementById('card-' + photoId);
-                    card.classList.remove('approved', 'rejected');
-                    card.classList.add(data.status);
-                    updateCounts();
-                }
+                if (!data.success) return;
+                const card = document.getElementById('card-' + photoId);
+                if (!card) return;
+                card.classList.remove('approved', 'rejected', 'pending');
+                card.classList.add(data.status);
+                updateCounts();
             });
         }
 
-        function batchAction(action) {
-            const page = document.body.dataset.page || 'candidates';
+        function toggleHero(photoId, isPinned, caption) {
+            fetch('/api/review/pin-hero', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: photoId, hero_pin: isPinned, caption: caption || ''})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const card = document.getElementById('card-' + photoId);
+                if (!card) return;
+                card.classList.toggle('hero', data.hero_pin);
+                const pinBtn = card.querySelector('.pin-btn');
+                if (pinBtn) {
+                    pinBtn.textContent = data.hero_pin ? '★ Hero' : '☆ Hero';
+                }
+                updateCounts();
+            });
+        }
+
+        function batchAction(action, pageType) {
             fetch('/api/batch', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action: action, page: page})
+                body: JSON.stringify({action: action, page: pageType || 'candidates'})
             })
             .then(r => r.json())
             .then(() => location.reload());
@@ -79,13 +118,14 @@
             .then(data => {
                 document.querySelectorAll('[data-count]').forEach(el => {
                     const key = el.dataset.count;
-                    if (data[key] !== undefined) el.textContent = data[key];
+                    if (data[key] !== undefined) {
+                        el.textContent = data[key];
+                    }
                 });
             });
         }
 
         function openLightbox(src) {
-            event.stopPropagation();
             document.getElementById('lightbox-img').src = src;
             document.getElementById('lightbox').classList.add('active');
         }
@@ -94,8 +134,29 @@
             document.getElementById('lightbox').classList.remove('active');
         }
 
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeLightbox();
+        document.addEventListener('click', event => {
+            const card = event.target.closest('.photo-card');
+            if (card) {
+                window.activeCardId = card.dataset.photoId;
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeLightbox();
+            if (!window.activeCardId) return;
+            if (event.key.toLowerCase() === 'j') {
+                togglePhoto(window.activeCardId, 'approve');
+            }
+            if (event.key.toLowerCase() === 'k') {
+                togglePhoto(window.activeCardId, 'reject');
+            }
+            if (event.key.toLowerCase() === 'h') {
+                const card = document.getElementById('card-' + window.activeCardId);
+                if (!card) return;
+                const next = !card.classList.contains('hero');
+                const caption = card.querySelector('.caption-input')?.value || '';
+                toggleHero(window.activeCardId, next, caption);
+            }
         });
     </script>
 

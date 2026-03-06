@@ -1,8 +1,8 @@
 """Google Photos Picker API integration for selecting and downloading photos."""
 
-import json
+from __future__ import annotations
+
 import time
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -17,15 +17,8 @@ from magazine.config import (
     GOOGLE_SCOPES,
     PICKER_API_BASE,
     ORIGINALS_DIR,
-    THUMBNAILS_DIR,
-    PHOTOS_MANIFEST,
 )
-from magazine.processing.images import (
-    make_thumbnail,
-    get_exif_date,
-    get_image_dimensions,
-    fix_exif_rotation,
-)
+from magazine.services.importer import import_existing_paths
 
 
 class GooglePhotoPicker:
@@ -36,7 +29,7 @@ class GooglePhotoPicker:
         self.session_id = None
         self.picker_uri = None
 
-    def get_auth_url(self) -> str:
+    def get_auth_url(self, state: str | None = None, redirect_uri: str | None = None) -> str:
         """Generate OAuth authorization URL."""
         if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
             raise click.ClickException(
@@ -57,13 +50,22 @@ class GooglePhotoPicker:
             }
         }
 
+        final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
+        if not final_redirect_uri:
+            raise click.ClickException(
+                "Google redirect URI is missing. Set GOOGLE_REDIRECT_URI or start the flow from the web app."
+            )
+
+        client_config["web"]["redirect_uris"] = [final_redirect_uri]
+
         self.flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
-        self.flow.redirect_uri = GOOGLE_REDIRECT_URI
+        self.flow.redirect_uri = final_redirect_uri
 
         auth_url, _ = self.flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
+            state=state,
         )
         return auth_url
 
@@ -212,36 +214,13 @@ def import_google_photos():
         items = picker.get_media_items()
         click.echo(f"Found {len(items)} selected photos. Downloading...")
         paths = picker.download_all(items)
-        click.echo(f"Downloaded {len(paths)} photos.")
-
-        # Process downloaded photos (thumbnails + manifest)
-        from tqdm import tqdm
-        photos = []
-        for i, photo_path in enumerate(tqdm(paths, desc="Processing")):
-            stem = photo_path.stem
-            thumb = make_thumbnail(photo_path, THUMBNAILS_DIR)
-            date_taken = get_exif_date(photo_path)
-            width, height = get_image_dimensions(photo_path)
-
-            photos.append({
-                "id": stem,
-                "original": str(photo_path),
-                "thumbnail": str(thumb),
-                "source_path": f"google_photos:{stem}",
-                "date_taken": date_taken,
-                "width": width,
-                "height": height,
-            })
-
-        # Merge with existing manifest if any
-        existing = []
-        if PHOTOS_MANIFEST.exists():
-            with open(PHOTOS_MANIFEST) as f:
-                existing = json.load(f)
-
-        existing.extend(photos)
-        with open(PHOTOS_MANIFEST, "w") as f:
-            json.dump(existing, f, indent=2)
+        click.echo(f"Downloaded {len(paths)} photos. Processing import...")
+        result = import_existing_paths(paths, source_prefix="google")
+        for path in paths:
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
         # Shutdown the server
         func = request.environ.get("werkzeug.server.shutdown")
@@ -250,7 +229,7 @@ def import_google_photos():
 
         return (
             f"<h2>Done!</h2>"
-            f"<p>Downloaded and processed {len(paths)} photos.</p>"
+            f"<p>Imported {result['imported']} photos ({result['skipped']} duplicates skipped).</p>"
             f"<p>You can close this window and return to the terminal.</p>"
         )
 
