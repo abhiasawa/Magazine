@@ -2,26 +2,26 @@
 
 {% block content %}
 <section class="hero">
-    <h1 class="hero-title">Your photos, printed editorial.</h1>
-    <p class="hero-sub">Select photos in Google Photos. Add a title. Get a print-ready magazine PDF. Nothing else to configure.</p>
+    <h1 class="hero-title">Turn memories into something you hold.</h1>
+    <p class="hero-sub">Pick your favorite photos from Google Photos, add a cover line, and get a print-ready editorial magazine — beautifully laid out, no design skills needed.</p>
 </section>
 
 <section class="cta-section">
     {% if google_configured %}
-    <button id="google-start" class="btn btn-primary">Connect Google Photos</button>
+    <button id="google-start" class="btn btn-primary">Choose Your Photos</button>
     {% else %}
     <button class="btn btn-primary" disabled>Google Photos unavailable</button>
     {% endif %}
-    <p class="cta-help">Opens a secure Google window to pick your photos.</p>
+    <p class="cta-help">Opens Google Photos so you can pick the moments that matter.</p>
 
     <button type="button" id="google-reset" class="btn btn-ghost">Start over</button>
 
     <div class="status-bar" id="google-status-panel">
         <div class="status-row">
             <span class="status-label">Status</span>
-            <span class="status-value" id="google-status">Ready to connect</span>
+            <span class="status-value" id="google-status">Your magazine is waiting.</span>
         </div>
-        <p class="status-detail" id="google-detail">Choose your photos in Google Photos. Generation unlocks when the selection is complete.</p>
+        <p class="status-detail" id="google-detail">Select your photos in Google Photos. Once you've picked the moments, we'll handle the rest.</p>
         <div class="status-metrics">
             <div class="metric">
                 <span class="metric-num" id="selected-total">0</span>
@@ -40,8 +40,8 @@
 </section>
 
 <section class="generate-panel" id="generate-panel" hidden>
-    <h2 class="generate-heading">Add the cover line.</h2>
-    <p class="generate-sub">Strong title, simple subtitle. Less copy reads better in print.</p>
+    <h2 class="generate-heading">Give it a cover line.</h2>
+    <p class="generate-sub">A strong title and a quiet subtitle. The best covers say just enough.</p>
 
     <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
         <input type="hidden" name="google_token" id="google-token-input">
@@ -57,7 +57,7 @@
 
         <div class="form-row">
             <label class="field field-title" for="title">
-                <span>Cover title</span>
+                <span>Cover Title</span>
                 <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
             </label>
             <label class="field" for="subtitle">
@@ -67,13 +67,20 @@
         </div>
 
         <label class="field" for="dedication">
-            <span>Opening line</span>
-            <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
+            <span>Opening Dedication</span>
+            <textarea id="dedication" name="dedication" placeholder="For the years we almost forgot to photograph.">{{ story_config.dedication }}</textarea>
         </label>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-submit" id="generate-button">Generate Magazine PDF</button>
-            <p class="form-note">PDF downloads when generation finishes.</p>
+            <button type="submit" class="btn btn-submit" id="generate-button">Create Your Magazine</button>
+            <p class="form-note" id="form-note">Your PDF will download when it's ready. Print it, gift it, keep it.</p>
+        </div>
+
+        <div class="progress-wrap" id="progress-wrap" hidden>
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p class="progress-label" id="progress-label"></p>
         </div>
     </form>
 </section>
@@ -123,8 +130,8 @@
 
     function renderSession(session) {
         if (!session) {
-            googleStatus.textContent = 'Ready to connect';
-            googleDetail.textContent = 'Choose your photos in Google Photos. Generation unlocks when the selection is complete.';
+            googleStatus.textContent = 'Your magazine is waiting.';
+            googleDetail.textContent = 'Select your photos in Google Photos. Once you\u2019ve picked the moments, we\u2019ll handle the rest.';
             flowStateEl.textContent = 'Waiting';
             selectedTotalEl.textContent = '0';
             estimatedPagesEl.textContent = '0';
@@ -240,10 +247,95 @@
         });
     }
 
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressFill = document.getElementById('progress-fill');
+    const progressLabel = document.getElementById('progress-label');
+    const formNote = document.getElementById('form-note');
+
+    const stages = [
+        { pct: 5,   label: 'Downloading photos from Google Photos' },
+        { pct: 35,  label: 'Downloading photos from Google Photos' },
+        { pct: 50,  label: 'Building magazine layout' },
+        { pct: 65,  label: 'Rendering PDF pages' },
+        { pct: 85,  label: 'Rendering PDF pages' },
+        { pct: 95,  label: 'Running preflight checks' },
+    ];
+
+    function setProgress(pct, label) {
+        progressFill.style.width = pct + '%';
+        if (label) progressLabel.textContent = label;
+    }
+
     if (generateForm && generateButton) {
-        generateForm.addEventListener('submit', () => {
+        generateForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
             generateButton.disabled = true;
-            generateButton.textContent = 'Generating PDF\u2026';
+            generateButton.hidden = true;
+            formNote.hidden = true;
+            progressWrap.hidden = false;
+            setProgress(0, 'Starting generation');
+
+            // Advance through stages on a timer
+            let stageIdx = 0;
+            const stageTimer = setInterval(() => {
+                if (stageIdx < stages.length) {
+                    setProgress(stages[stageIdx].pct, stages[stageIdx].label);
+                    stageIdx++;
+                }
+            }, 3000);
+
+            try {
+                const res = await fetch(generateForm.action, {
+                    method: 'POST',
+                    body: new FormData(generateForm),
+                });
+
+                clearInterval(stageTimer);
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || 'Generation failed');
+                }
+
+                const contentType = res.headers.get('content-type') || '';
+                if (contentType.includes('application/pdf')) {
+                    setProgress(100, 'Done — downloading PDF');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Magazine.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    setTimeout(() => {
+                        progressWrap.hidden = true;
+                        generateButton.hidden = false;
+                        generateButton.disabled = false;
+                        formNote.hidden = false;
+                        setProgress(0, '');
+                    }, 2000);
+                } else {
+                    // Server redirected back with flash error (HTML response)
+                    setProgress(0, '');
+                    progressWrap.hidden = true;
+                    generateButton.hidden = false;
+                    generateButton.disabled = false;
+                    formNote.hidden = false;
+                    formNote.textContent = 'Generation failed. Check the error above and try again.';
+                    // Reload to show flash message
+                    window.location.reload();
+                }
+            } catch (err) {
+                clearInterval(stageTimer);
+                setProgress(0, '');
+                progressWrap.hidden = true;
+                generateButton.hidden = false;
+                generateButton.disabled = false;
+                formNote.hidden = false;
+                formNote.textContent = 'Error: ' + (err.message || 'Generation failed');
+            }
         });
     }
 
