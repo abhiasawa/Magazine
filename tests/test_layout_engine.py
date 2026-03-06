@@ -16,11 +16,11 @@ def _fake_photo(idx: int, hero: bool = False) -> dict:
 
 def test_estimate_page_count_dynamic():
     # 0 photos → just the fixed structural pages
-    assert estimate_page_count(photo_count=0) == 4
-    # 10 photos at 1.7 density → ceil(10/1.7) + 4 = 6 + 4 = 10
-    assert estimate_page_count(photo_count=10, density=1.7, fixed_pages=4) == 10
-    # 50 photos → ceil(50/1.7) + 4 = 30 + 4 = 34
-    assert estimate_page_count(photo_count=50, density=1.7, fixed_pages=4) == 34
+    assert estimate_page_count(photo_count=0) == 5
+    # 10 photos at 1.7 density → ceil(10/1.7) + 5 = 6 + 5 = 11
+    assert estimate_page_count(photo_count=10, density=1.7, fixed_pages=5) == 11
+    # 50 photos → ceil(50/1.7) + 5 = 30 + 5 = 35
+    assert estimate_page_count(photo_count=50, density=1.7, fixed_pages=5) == 35
 
 
 def test_build_layout_uses_target_pages_and_places_hero(monkeypatch):

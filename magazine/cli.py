@@ -55,18 +55,5 @@ def generate_magazine(
     click.echo(f"Magazine saved to: {output_path}")
 
 
-@cli.command("preflight")
-@click.option("--pdf", "pdf_path", default="workspace/output/magazine.pdf", help="PDF path to validate")
-@click.option("--expected-pages", type=int, default=None, help="Optional expected page count")
-def preflight_pdf(pdf_path, expected_pages):
-    """Run preflight checks and render proof images."""
-    from magazine.pdf.preflight import run_preflight
-
-    report = run_preflight(pdf_path, expected_pages=expected_pages)
-    click.echo(f"Preflight status: {report['status']}")
-    for item in report["checks"]:
-        click.echo(f"[{item['status']}] {item['name']}: {item['details']}")
-
-
 if __name__ == "__main__":
     cli()

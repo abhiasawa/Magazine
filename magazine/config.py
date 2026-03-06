@@ -35,7 +35,6 @@ PHOTOS_MANIFEST = WORKSPACE / "photos.json"
 FACE_RESULTS = WORKSPACE / "face_results.json"
 REVIEW_STATE = WORKSPACE / "review_state.json"
 STORY_CONFIG = WORKSPACE / "story_config.json"
-PREFLIGHT_REPORT = OUTPUT_DIR / "preflight_report.json"
 PHOTO_HASHES = WORKSPACE / "photo_hashes.json"
 
 # Image settings
@@ -84,5 +83,5 @@ DEFAULT_STYLE = "editorial_luxury"
 DEFAULT_PAGINATION = {
     "mode": "auto",
     "density": 1.7,
-    "fixed_pages": 4,
+    "fixed_pages": 5,
 }

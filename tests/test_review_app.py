@@ -118,10 +118,6 @@ def test_generate_runs_google_selection_to_pdf(monkeypatch, tmp_path):
     )
     monkeypatch.setattr("magazine.review.app.build_layout", lambda **_: ["page-1", "page-2"])
     monkeypatch.setattr("magazine.pdf.generator.generate_pdf", lambda pages, style=None: pdf_path)
-    monkeypatch.setattr(
-        "magazine.pdf.preflight.run_preflight",
-        lambda output_path, expected_pages=None: {"status": "pass", "checks": []},
-    )
 
     response = client.post(
         "/generate",
@@ -133,11 +129,7 @@ def test_generate_runs_google_selection_to_pdf(monkeypatch, tmp_path):
             "google_session_id": "sid",
             "style": "editorial_luxury",
             "pages": "auto",
-            "min_pages": "28",
-            "max_pages": "72",
             "density": "1.7",
-            "page_step": "4",
-            "run_preflight": "on",
         },
     )
 

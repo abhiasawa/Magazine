@@ -249,7 +249,6 @@ def create_app() -> Flask:
         pages = request.form.get("pages", "auto")
         density = float(request.form.get("density", 1.7))
         fixed_pages = int(request.form.get("fixed_pages", 4))
-        run_preflight = request.form.get("run_preflight") == "on"
         google_token = (request.form.get("google_token") or "").strip()
         google_session_id = (request.form.get("google_session_id") or "").strip()
 
@@ -287,11 +286,6 @@ def create_app() -> Flask:
             from magazine.pdf.generator import generate_pdf
 
             output_path = generate_pdf(pages_spec, style=style)
-
-            if run_preflight:
-                from magazine.pdf.preflight import run_preflight as run_pdf_preflight
-
-                run_pdf_preflight(output_path, expected_pages=len(pages_spec))
 
             logger.info(
                 "magazine_generated selected=%s imported=%s skipped=%s pages=%s",

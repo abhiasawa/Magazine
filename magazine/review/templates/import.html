@@ -50,7 +50,6 @@
         <input type="hidden" name="style" value="editorial_luxury">
         <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
         <input type="hidden" name="fixed_pages" value="{{ story_config.pagination.fixed_pages }}">
-        <input type="hidden" name="run_preflight" value="on">
         <input type="hidden" name="title" value="Magazine">
         <input type="hidden" name="subtitle" value="">
         <input type="hidden" name="dedication" value="">
@@ -162,12 +161,17 @@
             renderSession(session);
             if (data.status === 'ready') {
                 if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                let popupClosed = false;
                 try {
-                    if (pickerPopup && !pickerPopup.closed) pickerPopup.close();
-                } catch (err) {
-                    // Ignore popup close failures.
-                }
+                    if (pickerPopup && !pickerPopup.closed) {
+                        pickerPopup.close();
+                        popupClosed = pickerPopup.closed;
+                    } else {
+                        popupClosed = true;
+                    }
+                } catch (err) { popupClosed = false; }
                 window.focus();
+                if (!popupClosed) showPickerNotification();
             }
         } catch (err) {
             session.status = 'error';
@@ -177,6 +181,22 @@
             renderSession(session);
             if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         }
+    }
+
+    function showPickerNotification() {
+        if (document.getElementById('picker-toast')) return;
+        const toast = document.createElement('div');
+        toast.id = 'picker-toast';
+        toast.className = 'picker-toast';
+        toast.innerHTML = '<span class="picker-toast-text">Photos selected! You can close the Google Photos tab.</span>' +
+            '<button class="picker-toast-close" onclick="this.parentElement.remove()">&times;</button>';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('picker-toast-exit');
+                setTimeout(() => toast.remove(), 400);
+            }
+        }, 8000);
     }
 
     function startPolling() {
@@ -225,6 +245,8 @@
             }
             saveSession(null);
             renderSession(null);
+            const existingToast = document.getElementById('picker-toast');
+            if (existingToast) existingToast.remove();
         });
     }
 
@@ -239,7 +261,7 @@
         { pct: 50,  label: 'Building magazine layout' },
         { pct: 65,  label: 'Rendering PDF pages' },
         { pct: 85,  label: 'Rendering PDF pages' },
-        { pct: 95,  label: 'Running preflight checks' },
+        { pct: 95,  label: 'Finalizing PDF' },
     ];
 
     function setProgress(pct, label) {

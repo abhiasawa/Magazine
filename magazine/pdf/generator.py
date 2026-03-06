@@ -144,6 +144,8 @@ def _photo_path(photo: dict) -> Path | None:
 
 def _render_pdf(pages: list[PageSpec], output_path: Path):
     """Render magazine pages to PDF using reportlab."""
+    import random
+
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import Color
@@ -152,17 +154,39 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     H = 210 * mm
     MARGIN = 15 * mm
 
+    # Core palette
     bg_dark = Color(0.047, 0.043, 0.039)       # #0c0b0a
     bg_cream = Color(0.957, 0.933, 0.902)       # #f4eee6
     ink = Color(0.094, 0.075, 0.063)            # #181310
     muted = Color(0.494, 0.42, 0.376)           # #7e6b60
     white = Color(1, 0.98, 0.957)               # #fffaf4
 
+    # Extended palette
+    kraft = Color(0.831, 0.769, 0.659)           # #d4c4a8
+    blush = Color(0.941, 0.878, 0.839)           # #f0e0d6
+    warm_gray = Color(0.910, 0.878, 0.847)       # #e8e0d8
+    rose_gold = Color(0.788, 0.663, 0.431)       # #c9a96e
+
+    # Background per template type
+    _bg = {
+        "cover": bg_dark, "back_cover": bg_dark,
+        "dedication": bg_cream, "editorial": bg_cream,
+        "full_bleed": bg_dark, "cinematic": bg_dark, "photo_quote_overlay": bg_dark,
+        "big_polaroid": warm_gray,
+        "collage2": bg_cream, "two_photo": blush,
+        "collage3": kraft, "three_photo": bg_cream,
+        "collage4": warm_gray, "mosaic": kraft,
+        "collage_stack": blush,
+    }
+
     c = canvas.Canvas(str(output_path), pagesize=(W, H))
 
     def _fill_page(color):
         c.setFillColor(color)
         c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    def _page_bg(template):
+        _fill_page(_bg.get(template, bg_cream))
 
     def _draw_image_fill(photo, x, y, w, h):
         """Draw full photo scaled to fit inside the box (contain-fit, no cropping)."""
@@ -185,6 +209,34 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                 c.drawImage(str(path), x, y, w, h, preserveAspectRatio=True)
             except Exception:
                 pass
+
+    def _draw_framed_photo(photo, x, y, w, h, border=4 * mm, shadow=True):
+        """Draw a photo with white polaroid border and optional drop shadow."""
+        fx = x - border
+        fy = y - border
+        fw = w + 2 * border
+        fh = h + 2 * border
+        if shadow:
+            so = 3 * mm
+            c.setFillColor(Color(0, 0, 0, alpha=0.12))
+            c.rect(fx + so, fy - so, fw, fh, fill=1, stroke=0)
+        c.setFillColor(Color(1, 1, 1))
+        c.rect(fx, fy, fw, fh, fill=1, stroke=0)
+        c.setStrokeColor(Color(0, 0, 0, alpha=0.06))
+        c.setLineWidth(0.5)
+        c.rect(fx, fy, fw, fh, fill=0, stroke=1)
+        _draw_image_fill(photo, x, y, w, h)
+
+    def _draw_rotated_framed_photo(photo, x, y, w, h, border=4 * mm, angle=0):
+        """Draw a framed photo with rotation around its center."""
+        cx = x + w / 2
+        cy = y + h / 2
+        c.saveState()
+        c.translate(cx, cy)
+        c.rotate(angle)
+        c.translate(-cx, -cy)
+        _draw_framed_photo(photo, x, y, w, h, border=border, shadow=True)
+        c.restoreState()
 
     def _draw_text_block(text, x, y, font, size, color, max_width=None, align="left"):
         """Draw wrapped text and return the final y position."""
@@ -215,9 +267,35 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             y -= leading
         return y
 
+    def _draw_divider(y, color=None):
+        """Draw a thin decorative centered horizontal rule."""
+        c.setStrokeColor(color or Color(0, 0, 0, alpha=0.15))
+        c.setLineWidth(0.4)
+        c.line(W * 0.3, y, W * 0.7, y)
+
+    def _draw_corner_ornament(x, y, size=18 * mm, rotation=0):
+        """Draw a decorative corner flourish in rose gold."""
+        c.saveState()
+        c.translate(x, y)
+        c.rotate(rotation)
+        c.setStrokeColor(rose_gold)
+        c.setLineWidth(0.8)
+        p = c.beginPath()
+        p.moveTo(0, size * 0.5)
+        p.curveTo(0, size * 0.1, size * 0.1, 0, size * 0.5, 0)
+        c.drawPath(p, stroke=1, fill=0)
+        p2 = c.beginPath()
+        p2.moveTo(size * 0.08, size * 0.5)
+        p2.curveTo(size * 0.08, size * 0.18, size * 0.18, size * 0.08, size * 0.5, size * 0.08)
+        c.drawPath(p2, stroke=1, fill=0)
+        c.setFillColor(rose_gold)
+        c.circle(size * 0.04, size * 0.5, 1, fill=1, stroke=0)
+        c.circle(size * 0.5, size * 0.04, 1, fill=1, stroke=0)
+        c.restoreState()
+
     def _page_number(num):
         if num:
-            c.setFont("Times-Roman", 8)
+            c.setFont("Helvetica", 7)
             c.setFillColor(muted)
             c.drawCentredString(W / 2, 10 * mm, str(num))
 
@@ -234,139 +312,154 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_text_block(page.title, MARGIN, y, "Times-Bold", 48, white,
                              W - 2 * MARGIN, "left")
         if page.subtitle:
-            c.setFont("Times-Roman", 16)
+            c.setFont("Helvetica", 14)
             c.setFillColor(Color(1, 1, 1, alpha=0.7))
             c.drawString(MARGIN, y - 60, page.subtitle)
 
     def _back_cover(page):
         _fill_page(bg_dark)
         if page.photos:
-            _draw_image_fill(page.photos[0], MARGIN, H * 0.35, W - 2 * MARGIN, H * 0.55)
+            _draw_framed_photo(page.photos[0], MARGIN + 5 * mm, H * 0.35,
+                               W - 2 * MARGIN - 10 * mm, H * 0.5, border=6 * mm)
         if page.title:
-            c.setFont("Times-Bold", 28)
+            c.setFont("Helvetica-Bold", 24)
             c.setFillColor(white)
-            c.drawCentredString(W / 2, H * 0.2, page.title)
+            c.drawCentredString(W / 2, H * 0.18, page.title)
         if page.subtitle:
-            c.setFont("Times-Roman", 12)
+            c.setFont("Helvetica", 11)
             c.setFillColor(Color(1, 1, 1, alpha=0.6))
-            c.drawCentredString(W / 2, H * 0.15, page.subtitle)
+            c.drawCentredString(W / 2, H * 0.13, page.subtitle)
 
     def _dedication(page):
-        _fill_page(bg_cream)
+        _page_bg("dedication")
+        orn = 18 * mm
+        _draw_corner_ornament(MARGIN, H - MARGIN, orn, 0)
+        _draw_corner_ornament(W - MARGIN, H - MARGIN, orn, 90)
+        _draw_corner_ornament(W - MARGIN, MARGIN, orn, 180)
+        _draw_corner_ornament(MARGIN, MARGIN, orn, 270)
         if page.dedication:
-            _draw_text_block(page.dedication, MARGIN * 2, H * 0.55, "Times-Italic", 18,
-                             muted, W - 4 * MARGIN, "center")
+            y = _draw_text_block(page.dedication, MARGIN * 2, H * 0.55, "Times-Italic", 18,
+                                 muted, W - 4 * MARGIN, "center")
+            _draw_divider(y - 10 * mm)
         _page_number(page.page_number)
 
     def _full_bleed(page):
         _fill_page(bg_dark)
         if page.photos:
             _draw_image_fill(page.photos[0], 0, 0, W, H)
+        # Cinematic letterbox bars
+        if page.template in ("cinematic", "photo_quote_overlay"):
+            bar_h = 22 * mm
+            c.setFillColor(Color(0, 0, 0, alpha=0.85))
+            c.rect(0, H - bar_h, W, bar_h, fill=1, stroke=0)
+            c.rect(0, 0, W, bar_h, fill=1, stroke=0)
         if page.section_title:
             c.setFillColor(Color(0, 0, 0, alpha=0.5))
             c.rect(0, 0, W, 30 * mm, fill=1, stroke=0)
-            c.setFont("Times-Roman", 10)
+            c.setFont("Helvetica-Bold", 9)
             c.setFillColor(white)
             c.drawString(MARGIN, 12 * mm, page.section_title.upper())
         _page_number(page.page_number)
 
-    def _quote(page):
-        _fill_page(bg_cream)
-        y = H * 0.6
-        if page.quote:
-            text = page.quote.get("text", "")
-            author = page.quote.get("author", "")
-            if text:
-                y = _draw_text_block(f"\u201c{text}\u201d", MARGIN * 2, y,
-                                     "Times-Italic", 22, ink, W - 4 * MARGIN, "center")
-            if author:
-                c.setFont("Times-Roman", 11)
-                c.setFillColor(muted)
-                c.drawCentredString(W / 2, y - 20, f"\u2014 {author}")
-        _page_number(page.page_number)
-
     def _big_polaroid(page):
-        _fill_page(bg_cream)
+        _page_bg("big_polaroid")
         pad = 20 * mm
         img_w = W - 2 * pad
         img_h = H * 0.65
         img_y = H - pad - img_h
+        # Shadow
+        so = 3 * mm
+        c.setFillColor(Color(0, 0, 0, alpha=0.12))
+        c.roundRect(pad - 4 * mm + so, img_y - 18 * mm - so,
+                    img_w + 8 * mm, img_h + 22 * mm, 3 * mm, fill=1, stroke=0)
+        # White frame
         c.setFillColor(Color(1, 1, 1))
         c.roundRect(pad - 4 * mm, img_y - 18 * mm, img_w + 8 * mm,
                     img_h + 22 * mm, 3 * mm, fill=1, stroke=0)
-        c.setStrokeColor(Color(0, 0, 0, alpha=0.08))
+        c.setStrokeColor(Color(0, 0, 0, alpha=0.06))
+        c.setLineWidth(0.5)
         c.roundRect(pad - 4 * mm, img_y - 18 * mm, img_w + 8 * mm,
                     img_h + 22 * mm, 3 * mm, fill=0, stroke=1)
         if page.photos:
             _draw_image_fill(page.photos[0], pad, img_y, img_w, img_h)
-        if page.quote:
-            text = page.quote.get("text", "")
-            if text:
-                _draw_text_block(text, pad, img_y - 28 * mm, "Times-Italic", 13,
-                                 muted, img_w, "center")
+        _draw_divider(img_y - 24 * mm)
         _page_number(page.page_number)
 
     def _two_photos(page):
-        _fill_page(bg_cream)
-        gap = 4 * mm
-        iw = (W - 2 * MARGIN - gap) / 2
-        ih = H - 2 * MARGIN
+        _page_bg(page.template)
+        gap = 8 * mm
+        border = 4 * mm
+        iw = (W - 2 * MARGIN - gap - 4 * border) / 2
+        ih = H - 2 * MARGIN - 2 * border - 6 * mm
+        random.seed(hash(page.photos[0]["id"]) if page.photos else page.page_number)
         for i, photo in enumerate(page.photos[:2]):
-            x = MARGIN + i * (iw + gap)
-            _draw_image_fill(photo, x, MARGIN, iw, ih)
+            x = MARGIN + border + i * (iw + gap + 2 * border)
+            y = MARGIN + border + 3 * mm
+            angle = random.uniform(-2, 3)
+            _draw_rotated_framed_photo(photo, x, y, iw, ih, border=border, angle=angle)
         _page_number(page.page_number)
 
     def _three_photos(page):
-        _fill_page(bg_cream)
-        gap = 4 * mm
-        top_h = (H - 2 * MARGIN - gap) * 0.6
-        bot_h = (H - 2 * MARGIN - gap) * 0.4
+        _page_bg(page.template)
+        gap = 6 * mm
+        border = 3 * mm
+        top_h = (H - 2 * MARGIN - gap - 4 * border) * 0.6
+        bot_h = (H - 2 * MARGIN - gap - 4 * border) * 0.4
+        random.seed(hash(page.photos[0]["id"]) if page.photos else page.page_number)
         if len(page.photos) >= 1:
-            _draw_image_fill(page.photos[0], MARGIN, MARGIN + bot_h + gap,
-                             W - 2 * MARGIN, top_h)
-        bot_w = (W - 2 * MARGIN - gap) / 2
+            angle = random.uniform(-3, 4)
+            _draw_rotated_framed_photo(
+                page.photos[0],
+                MARGIN + border, MARGIN + border + bot_h + gap + 2 * border,
+                W - 2 * MARGIN - 2 * border, top_h,
+                border=border, angle=angle,
+            )
+        bot_w = (W - 2 * MARGIN - gap - 4 * border) / 2
         for i, photo in enumerate(page.photos[1:3]):
-            x = MARGIN + i * (bot_w + gap)
-            _draw_image_fill(photo, x, MARGIN, bot_w, bot_h)
+            x = MARGIN + border + i * (bot_w + gap + 2 * border)
+            angle = random.uniform(-3, 4)
+            _draw_rotated_framed_photo(photo, x, MARGIN + border, bot_w, bot_h,
+                                       border=border, angle=angle)
         _page_number(page.page_number)
 
     def _four_photos(page):
-        _fill_page(bg_cream)
-        gap = 4 * mm
-        iw = (W - 2 * MARGIN - gap) / 2
-        ih = (H - 2 * MARGIN - gap) / 2
+        _page_bg(page.template)
+        gap = 6 * mm
+        border = 2 * mm
+        iw = (W - 2 * MARGIN - gap - 4 * border) / 2
+        ih = (H - 2 * MARGIN - gap - 4 * border) / 2
         positions = [
-            (MARGIN, MARGIN + ih + gap),
-            (MARGIN + iw + gap, MARGIN + ih + gap),
-            (MARGIN, MARGIN),
-            (MARGIN + iw + gap, MARGIN),
+            (MARGIN + border, MARGIN + border + ih + gap + 2 * border),
+            (MARGIN + border + iw + gap + 2 * border, MARGIN + border + ih + gap + 2 * border),
+            (MARGIN + border, MARGIN + border),
+            (MARGIN + border + iw + gap + 2 * border, MARGIN + border),
         ]
+        random.seed(hash(page.photos[0]["id"]) if page.photos else page.page_number)
         for i, photo in enumerate(page.photos[:4]):
             x, y = positions[i]
-            _draw_image_fill(photo, x, y, iw, ih)
+            angle = random.uniform(-2, 3)
+            _draw_rotated_framed_photo(photo, x, y, iw, ih, border=border, angle=angle)
         _page_number(page.page_number)
 
     def _editorial(page):
-        _fill_page(bg_cream)
+        _page_bg("editorial")
         img_w = W * 0.48
+        border = 5 * mm
         if page.photos:
-            _draw_image_fill(page.photos[0], MARGIN, MARGIN, img_w, H - 2 * MARGIN)
-        text_x = MARGIN + img_w + 8 * mm
+            _draw_framed_photo(page.photos[0], MARGIN + border, MARGIN + border,
+                               img_w - 2 * border, H - 2 * MARGIN - 2 * border, border=border)
+        text_x = MARGIN + img_w + 10 * mm
         text_w = W - text_x - MARGIN
         if page.section_title:
-            c.setFont("Times-Roman", 9)
+            c.setFont("Helvetica-Bold", 9)
             c.setFillColor(muted)
-            c.drawString(text_x, H - MARGIN - 10, page.section_title.upper())
-        if page.quote:
-            text = page.quote.get("text", "")
-            if text:
-                _draw_text_block(text, text_x, H - MARGIN - 30, "Times-Italic", 14,
-                                 ink, text_w)
+            c.drawString(text_x, H - MARGIN - 12, page.section_title.upper())
+            _draw_divider(H - MARGIN - 20, color=Color(0, 0, 0, alpha=0.1))
         _page_number(page.page_number)
 
     def _simple(page):
         """Fallback for unknown templates: place photos in a grid."""
-        _fill_page(bg_cream)
+        _page_bg(page.template)
         n = len(page.photos)
         if n == 0:
             _page_number(page.page_number)
@@ -393,7 +486,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         "full_bleed": _full_bleed,
         "cinematic": _full_bleed,
         "photo_quote_overlay": _full_bleed,
-        "quote_page": _quote,
         "big_polaroid": _big_polaroid,
         "collage2": _two_photos,
         "two_photo": _two_photos,
