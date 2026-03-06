@@ -88,6 +88,9 @@ def _download_and_import_google_selection(token: str, session_id: str) -> dict:
             except Exception:
                 logger.warning("failed_to_remove_temp_google_file path=%s", path)
 
+    if total_imported == 0:
+        raise ValueError("Google Photos did not return any usable downloadable photos.")
+
     _approve_all_imported()
     return {
         "selected_total": len(items),

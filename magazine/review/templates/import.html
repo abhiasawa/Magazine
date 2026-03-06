@@ -93,6 +93,7 @@
     const estimatedPagesEl = document.getElementById('estimated-pages');
     const flowStateEl = document.getElementById('flow-state');
     const storageKey = 'magazineGoogleSession';
+    let pickerPopup = null;
     let pollTimer = null;
 
     function loadSession() {
@@ -170,7 +171,15 @@
             session.selectedTotal = data.selected_total || 0;
             saveSession(session);
             renderSession(session);
-            if (data.status === 'ready' && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            if (data.status === 'ready') {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                try {
+                    if (pickerPopup && !pickerPopup.closed) pickerPopup.close();
+                } catch (err) {
+                    // Ignore popup close failures.
+                }
+                window.focus();
+            }
         } catch (err) {
             session.status = 'error';
             session.message = err.message || 'Could not read Google status.';
@@ -212,14 +221,19 @@
             const res = await fetch('/api/import/google/start', { method: 'POST' });
             const data = await res.json();
             if (!data.success) { googleStatus.textContent = data.error || 'Could not start Google Photos.'; return; }
-            const popup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
-            if (!popup) { googleStatus.textContent = 'Allow pop-ups for this site and try again.'; googleDetail.textContent = ''; }
+            pickerPopup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
+            if (!pickerPopup) { googleStatus.textContent = 'Allow pop-ups for this site and try again.'; googleDetail.textContent = ''; }
         });
     }
 
     if (googleReset) {
         googleReset.addEventListener('click', () => {
             if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            try {
+                if (pickerPopup && !pickerPopup.closed) pickerPopup.close();
+            } catch (err) {
+                // Ignore popup close failures.
+            }
             saveSession(null);
             renderSession(null);
         });

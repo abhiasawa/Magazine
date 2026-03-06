@@ -60,7 +60,7 @@ def clone_photo(photo: dict) -> dict:
 
 
 def load_approved_photos() -> list[dict]:
-    """Load approved photos from review state, sorted by date."""
+    """Load selected photos for layout, excluding only explicit rejects."""
     if not PHOTOS_MANIFEST.exists():
         return []
 
@@ -72,14 +72,16 @@ def load_approved_photos() -> list[dict]:
     for p in photos:
         pid = p["id"]
         entry = review_state.get(pid, {"status": "pending", "hero_pin": False, "caption": ""})
-        if _review_status(entry) == "approved":
-            face_count, faces = _face_payload(face_results.get(pid, {}))
-            row = clone_photo(p)
-            row["hero_pin"] = _hero_pin(entry)
-            row["caption"] = _caption(entry)
-            row["face_count"] = face_count
-            row["faces"] = faces
-            approved.append(row)
+        if _review_status(entry) == "rejected":
+            continue
+
+        face_count, faces = _face_payload(face_results.get(pid, {}))
+        row = clone_photo(p)
+        row["hero_pin"] = _hero_pin(entry)
+        row["caption"] = _caption(entry)
+        row["face_count"] = face_count
+        row["faces"] = faces
+        approved.append(row)
 
     approved.sort(key=lambda p: p.get("date_taken") or "9999")
     return approved
@@ -186,11 +188,11 @@ def build_layout(
     page_step: int = 4,
     fixed_pages: int = 8,
 ) -> list[PageSpec]:
-    """Build dynamic editorial layout from approved photos."""
+    """Build dynamic editorial layout from the selected photo set."""
     photos = load_approved_photos()
 
     if not photos:
-        raise ValueError("No approved photos found. Review and approve photos first.")
+        raise ValueError("No imported photos found. Select photos in Google Photos first.")
 
     if pages == "auto":
         target_pages = estimate_page_count(

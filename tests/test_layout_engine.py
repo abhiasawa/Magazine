@@ -1,4 +1,4 @@
-from magazine.layout.engine import estimate_page_count, build_layout
+from magazine.layout.engine import estimate_page_count, build_layout, load_approved_photos
 
 
 def _fake_photo(idx: int, hero: bool = False) -> dict:
@@ -45,3 +45,28 @@ def test_build_layout_rounds_manual_pages(monkeypatch):
 
     pages = build_layout(pages=31)
     assert len(pages) == 32
+
+
+def test_load_approved_photos_uses_pending_items(monkeypatch, tmp_path):
+    import magazine.layout.engine as engine
+
+    photos_manifest = tmp_path / "photos.json"
+    manifest_rows = [
+        {"id": "a", "date_taken": "2026:01:01 10:00:00", "width": 1200, "height": 900, "original": "a.jpg"},
+        {"id": "b", "date_taken": "2026:01:02 10:00:00", "width": 1200, "height": 900, "original": "b.jpg"},
+    ]
+    photos_manifest.write_text("[]")
+
+    monkeypatch.setattr(engine, "PHOTOS_MANIFEST", photos_manifest)
+    monkeypatch.setattr(
+        "magazine.layout.engine.load_json",
+        lambda path, default: manifest_rows if path == photos_manifest else {},
+    )
+    monkeypatch.setattr(
+        "magazine.layout.engine.load_review_state",
+        lambda: {"a": {"status": "pending"}, "b": {"status": "approved"}},
+    )
+
+    photos = load_approved_photos()
+
+    assert [photo["id"] for photo in photos] == ["a", "b"]
