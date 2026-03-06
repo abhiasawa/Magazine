@@ -1,4 +1,4 @@
-"""Configuration and constants for the photo magazine generator."""
+"""Configuration and constants for Magazine."""
 
 import os
 from pathlib import Path

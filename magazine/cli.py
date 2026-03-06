@@ -1,4 +1,4 @@
-"""CLI entry point for the photo magazine generator."""
+"""CLI entry point for Magazine."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import click
 
 @click.group()
 def cli():
-    """Photo Magazine Generator - Create beautiful print-ready photo magazines."""
+    """Magazine - Create beautiful print-ready magazines."""
     pass
 
 

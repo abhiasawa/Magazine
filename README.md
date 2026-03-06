@@ -1,6 +1,6 @@
-# Photo Magazine Generator
+# Magazine
 
-Create beautiful photo magazines from your photos. Import from your browser or Google Photos, curate in a premium web UI, and generate dynamic-page editorial layouts ready for print export.
+Create beautiful print magazines from your photos. Import from your browser or Google Photos, curate in a premium web UI, and generate dynamic-page editorial layouts ready for print export.
 
 ## Features
 
@@ -15,7 +15,6 @@ Create beautiful photo magazines from your photos. Import from your browser or G
 
 ## Hosted Workflow
 
-```bash
 Use the public deployment:
 
 [https://photo-magazine.vercel.app](https://photo-magazine.vercel.app)
@@ -24,7 +23,6 @@ The hosted flow is:
 1. Import photos from your browser or Google Photos
 2. Review and approve the keepers
 3. Generate the magazine
-```
 
 ## Google Photos Setup
 
