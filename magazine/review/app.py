@@ -355,9 +355,9 @@ def create_app() -> Flask:
             title="Import Photos",
             google_configured=bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
             google_status_message=(
-                "Private beta. Connect your library in a secure Google window, choose your photos, and return here while they sync."
+                "Connect your library in a secure Google window, choose your photos, and return here while they sync."
                 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
-                else "Google Photos is not configured for this private studio yet."
+                else "Google Photos is not configured for this deployment yet."
             ),
             google_callback_uri=current_google_callback_uri(),
         )

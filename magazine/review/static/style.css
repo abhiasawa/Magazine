@@ -116,8 +116,7 @@ body::selection {
 .field-group span,
 .status-pill,
 .hero-pill,
-.dropzone-tag,
-.source-private-label {
+.dropzone-tag {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.22em;
@@ -344,8 +343,7 @@ body::selection {
 .import-result,
 .shortcut-hint,
 .empty-state p,
-.check-row,
-.source-footnote {
+.check-row {
     color: var(--muted);
     line-height: 1.72;
 }
@@ -512,12 +510,6 @@ body::selection {
     gap: 10px;
     color: var(--ink-soft);
     line-height: 1.6;
-}
-
-.source-footnote {
-    margin: 0;
-    font-size: 13px;
-    color: var(--muted-soft);
 }
 
 .btn,
