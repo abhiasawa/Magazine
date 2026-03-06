@@ -183,12 +183,17 @@ class GooglePhotoPicker:
             if not base_url:
                 return None
 
-            # Request full resolution
+            # Request full resolution with metadata preserved
             width = media_file.get("mediaFileMetadata", {}).get("width", 4000)
             height = media_file.get("mediaFileMetadata", {}).get("height", 3000)
-            download_url = f"{base_url}=w{width}-h{height}"
+            download_url = f"{base_url}=w{width}-h{height}-d"
 
-            resp = requests.get(download_url, timeout=60)
+            # Picker API baseUrls require OAuth authorization
+            resp = requests.get(
+                download_url,
+                headers={"Authorization": f"Bearer {self.credentials.token}"},
+                timeout=60,
+            )
             resp.raise_for_status()
 
             item_id = item.get("id", "unknown")
