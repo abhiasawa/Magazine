@@ -17,6 +17,12 @@
 
 <section class="cta-section">
     <div class="cta-card">
+        {% if google_connected %}
+        <div class="connection-pill" id="google-connected-pill">
+            <span>Google connected</span>
+            <button type="button" id="google-disconnect" class="pill-action">Disconnect</button>
+        </div>
+        {% endif %}
         <div class="cta-actions">
             {% if google_configured %}
             <button id="google-start" class="btn btn-primary">
@@ -72,7 +78,7 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-submit" id="generate-button">Preview Your Volume</button>
-                    <p class="form-note" id="form-note">Your PDF will download when it's ready.</p>
+                    <p class="form-note" id="form-note">Your preview opens in the browser when it's ready.</p>
                 </div>
 
                 <div class="progress-wrap" id="progress-wrap" hidden>
@@ -98,6 +104,8 @@
     const tokenInput = document.getElementById('google-token-input');
     const sessionInput = document.getElementById('google-session-input');
     const googleReset = document.getElementById('google-reset');
+    const googleDisconnect = document.getElementById('google-disconnect');
+    const googleConnectedPill = document.getElementById('google-connected-pill');
     const googleStatusPanel = document.getElementById('google-status-panel');
     const generateForm = document.getElementById('generate-form');
     const generateButton = document.getElementById('generate-button');
@@ -108,6 +116,35 @@
     let pollTimer = null;
     let autoGenerateArmed = false;
     let currentSession = null;
+
+    const PDF_STORE = 'maison-folio-preview';
+    const PDF_KEY = 'latest';
+
+    function openPreviewDb() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(PDF_STORE, 1);
+            req.onupgradeneeded = () => {
+                req.result.createObjectStore('pdfs');
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async function savePreviewBlob(blob, filename) {
+        const db = await openPreviewDb();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction('pdfs', 'readwrite');
+            tx.objectStore('pdfs').put({
+                blob,
+                filename,
+                savedAt: Date.now(),
+            }, PDF_KEY);
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+    }
 
     function loadSession() {
         return currentSession;
@@ -227,9 +264,11 @@
             }
 
             const contentType = res.headers.get('content-type') || '';
-            if (res.redirected || contentType.includes('text/html')) {
+            if (contentType.includes('application/pdf')) {
+                const blob = await res.blob();
+                await savePreviewBlob(blob, 'Maison-Folio.pdf');
                 setProgress(100, 'Opening preview');
-                window.location.assign(res.url);
+                window.location.assign('{{ url_for("preview_screen") }}');
             } else {
                 setProgress(0, '');
                 progressWrap.hidden = true;
@@ -237,7 +276,6 @@
                 generateButton.disabled = false;
                 formNote.hidden = false;
                 formNote.textContent = 'Generation failed. Check the error above and try again.';
-                window.location.reload();
             }
         } catch (err) {
             clearInterval(stageTimer);
@@ -364,11 +402,39 @@
             renderSession({
                 status: 'connecting',
                 message: 'Opening Google Photos…',
-                detail: 'Approve access, then choose the photos you want in Google Photos.',
+                detail: 'Choose the photos you want in Google Photos.',
                 selectedTotal: 0,
             });
-            const res = await fetch('/api/import/google/start', { method: 'POST' });
-            const data = await res.json();
+            let res = await fetch('/api/import/google/session', { method: 'POST' });
+            let data = await res.json();
+            if (data.success) {
+                autoGenerateArmed = true;
+                saveSession({
+                    state: '',
+                    token: data.google_token || '',
+                    sessionId: data.google_session_id || '',
+                    status: 'waiting_selection',
+                    message: 'Choose your photos in Google Photos.',
+                    detail: 'When you press Done in Google Photos, this page will switch to photos fetched automatically.',
+                    selectedTotal: 0,
+                });
+                renderSession(loadSession());
+                pickerPopup = window.open(data.picker_uri, 'magazine-google-picker', 'width=980,height=760');
+                if (!pickerPopup) {
+                    renderSession({
+                        status: 'error',
+                        message: 'Allow pop-ups for this site and try again.',
+                        detail: '',
+                        selectedTotal: 0,
+                    });
+                    return;
+                }
+                startPolling();
+                return;
+            }
+
+            res = await fetch('/api/import/google/start', { method: 'POST' });
+            data = await res.json();
             if (!data.success) {
                 renderSession({
                     status: 'error',
@@ -387,6 +453,16 @@
                     selectedTotal: 0,
                 });
             }
+        });
+    }
+
+    if (googleDisconnect) {
+        googleDisconnect.addEventListener('click', async () => {
+            await fetch('/api/google/disconnect', { method: 'POST' });
+            if (googleConnectedPill) googleConnectedPill.remove();
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            saveSession(null);
+            renderSession(null);
         });
     }
 

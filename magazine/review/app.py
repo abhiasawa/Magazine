@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import logging
+import os
 import shutil
 import uuid
 from pathlib import Path
 
+from cryptography.fernet import Fernet, InvalidToken
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from magazine.config import (
@@ -30,11 +34,30 @@ from magazine.services.state import (
 from magazine.sources.google_picker import GooglePhotoPicker
 
 logger = logging.getLogger(__name__)
+GOOGLE_REFRESH_COOKIE = "maison_folio_google_refresh"
 
 
 def _google_verifier_cookie_name(state: str) -> str:
     safe_state = "".join(ch for ch in state if ch.isalnum() or ch in {"-", "_"})
     return f"magazine_google_verifier_{safe_state}"
+
+
+def _cookie_cipher(secret: str) -> Fernet:
+    digest = hashlib.sha256(secret.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def _encrypt_cookie_value(secret: str, value: str) -> str:
+    return _cookie_cipher(secret).encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def _decrypt_cookie_value(secret: str, value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return _cookie_cipher(secret).decrypt(value.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return None
 
 
 def _reset_workspace():
@@ -105,7 +128,20 @@ def create_app() -> Flask:
         template_folder=str(Path(__file__).parent / "templates"),
         static_folder=str(Path(__file__).parent / "static"),
     )
-    app.secret_key = "magazine-review-secret"
+    app.secret_key = os.getenv("FLASK_SECRET_KEY", "magazine-review-secret")
+
+    def _saved_google_refresh_token() -> str | None:
+        return _decrypt_cookie_value(app.secret_key, request.cookies.get(GOOGLE_REFRESH_COOKIE))
+
+    def _set_refresh_cookie(response, refresh_token: str):
+        response.set_cookie(
+            GOOGLE_REFRESH_COOKIE,
+            _encrypt_cookie_value(app.secret_key, refresh_token),
+            max_age=60 * 60 * 24 * 180,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+        )
 
     def current_google_callback_uri() -> str:
         configured = GOOGLE_REDIRECT_URI.strip()
@@ -121,6 +157,7 @@ def create_app() -> Flask:
             title="Maison Folio",
             active_page="import",
             google_configured=bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+            google_connected=bool(_saved_google_refresh_token()),
             story_config=load_story_config(),
         )
 
@@ -133,19 +170,12 @@ def create_app() -> Flask:
 
     @app.route("/preview")
     def preview_screen():
-        pdf_path = OUTPUT_DIR / "magazine.pdf"
-        if not pdf_path.exists():
-            flash("Generate a magazine first to preview it.", "error")
-            return redirect(url_for("import_screen"))
-
         story_config = load_story_config()
         return render_template(
             "preview.html",
             title="Preview",
             active_page="preview",
             story_config=story_config,
-            pdf_url=url_for("preview_pdf"),
-            download_url=url_for("download_pdf"),
         )
 
     @app.route("/preview/pdf")
@@ -164,6 +194,40 @@ def create_app() -> Flask:
             return redirect(url_for("import_screen"))
         return send_file(pdf_path, mimetype="application/pdf", as_attachment=True, download_name="Maison-Folio.pdf")
 
+    @app.route("/api/google/connection")
+    def api_google_connection():
+        return jsonify({"success": True, "connected": bool(_saved_google_refresh_token())})
+
+    @app.route("/api/google/disconnect", methods=["POST"])
+    def api_google_disconnect():
+        response = jsonify({"success": True})
+        response.delete_cookie(GOOGLE_REFRESH_COOKIE)
+        return response
+
+    @app.route("/api/import/google/session", methods=["POST"])
+    def api_import_google_session():
+        refresh_token = _saved_google_refresh_token()
+        if not refresh_token:
+            return jsonify({"success": False, "connected": False}), 404
+
+        try:
+            picker = GooglePhotoPicker.from_refresh_token(refresh_token)
+            picker_uri = picker.create_session()
+            return jsonify(
+                {
+                    "success": True,
+                    "connected": True,
+                    "picker_uri": picker_uri,
+                    "google_token": picker.credentials.token,
+                    "google_session_id": picker.session_id,
+                }
+            )
+        except Exception as exc:
+            logger.exception("google_saved_session_failed")
+            response = jsonify({"success": False, "connected": False, "error": str(exc)})
+            response.delete_cookie(GOOGLE_REFRESH_COOKIE)
+            return response, 401
+
     @app.route("/api/import/google/start", methods=["POST"])
     def api_import_google_start():
         if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -179,6 +243,7 @@ def create_app() -> Flask:
         auth_url, code_verifier = picker.start_auth(
             state=state,
             redirect_uri=current_google_callback_uri(),
+            force_consent=not bool(_saved_google_refresh_token()),
         )
         response = jsonify({"success": True, "auth_url": auth_url})
         response.set_cookie(
@@ -220,6 +285,9 @@ def create_app() -> Flask:
         final_response = app.make_response(response)
         if state:
             final_response.delete_cookie(_google_verifier_cookie_name(state))
+        refresh_token = getattr(picker.credentials, "refresh_token", None)
+        if refresh_token:
+            _set_refresh_cookie(final_response, refresh_token)
         return final_response
 
     @app.route("/api/google/status", methods=["POST"])
@@ -327,7 +395,12 @@ def create_app() -> Flask:
                 import_result["skipped"],
                 len(pages_spec),
             )
-            return redirect(url_for("preview_screen"))
+            return send_file(
+                output_path,
+                mimetype="application/pdf",
+                as_attachment=False,
+                download_name="Maison-Folio.pdf",
+            )
         except Exception as exc:
             logger.exception("magazine_generate_failed")
             flash(f"Error generating magazine: {exc}", "error")

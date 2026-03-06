@@ -48,7 +48,7 @@ def test_google_start_sets_pkce_cookie(monkeypatch):
     client = app.test_client()
 
     class FakePicker:
-        def start_auth(self, state=None, redirect_uri=None):
+        def start_auth(self, state=None, redirect_uri=None, force_consent=True):
             assert state
             return "https://accounts.google.com/o/oauth2/auth?state=" + state, "verifier-123"
 
@@ -134,5 +134,6 @@ def test_generate_runs_google_selection_to_pdf(monkeypatch, tmp_path):
         follow_redirects=False,
     )
 
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/preview")
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert response.data.startswith(b"%PDF-1.4")

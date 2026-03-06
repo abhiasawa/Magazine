@@ -96,16 +96,19 @@ main {
 .site-header {
     position: relative;
     z-index: 20;
-    padding: 1.75rem 0 0.75rem;
+    padding: 1.35rem 0 0.4rem;
     text-align: left;
 }
 
 .brand {
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.4);
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: clamp(2.35rem, 5vw, 4.25rem);
+    font-style: italic;
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: rgba(244, 241, 234, 0.92);
 }
 
 /* ── Hero ── */
@@ -165,13 +168,13 @@ main {
 }
 
 .hero-sub {
-    margin: 2rem 0 0;
-    max-width: 44ch;
-    font-size: 1.05rem;
+    margin: 1.5rem 0 0;
+    max-width: 40ch;
+    font-size: 0.92rem;
     font-weight: 300;
-    line-height: 1.8;
-    color: var(--muted-light);
-    opacity: 0.9;
+    line-height: 1.65;
+    color: rgba(244, 241, 234, 0.66);
+    opacity: 0.82;
 }
 
 .hero-meta {
@@ -316,11 +319,11 @@ main {
 
 .cta-help {
     margin: 0;
-    font-size: 0.62rem;
+    font-size: 0.54rem;
     font-weight: 500;
     color: var(--muted);
-    line-height: 1.7;
-    letter-spacing: 0.18em;
+    line-height: 1.55;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     text-align: center;
 }
@@ -664,6 +667,10 @@ main {
         padding-top: 1.25rem;
     }
 
+    .brand {
+        font-size: clamp(2rem, 11vw, 3.1rem);
+    }
+
     .hero {
         padding: 1rem 0 0;
     }
@@ -681,7 +688,7 @@ main {
     }
 
     .hero-title { font-size: clamp(3.15rem, 16vw, 5rem); }
-    .hero-sub { font-size: 0.9375rem; }
+    .hero-sub { font-size: 0.84rem; }
     .hero-shift-wide,
     .hero-shift-mid { margin-left: 0; }
     .hero-meta { margin-top: 1.75rem; }

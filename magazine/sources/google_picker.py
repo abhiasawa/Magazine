@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 import click
 import requests
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 
 from magazine.config import (
@@ -33,6 +35,21 @@ class GooglePhotoPicker:
         picker = cls()
         picker.credentials = SimpleNamespace(token=token)
         picker.session_id = session_id
+        return picker
+
+    @classmethod
+    def from_refresh_token(cls, refresh_token: str):
+        picker = cls()
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            scopes=GOOGLE_SCOPES,
+        )
+        creds.refresh(GoogleAuthRequest())
+        picker.credentials = creds
         return picker
 
     @staticmethod
@@ -75,17 +92,25 @@ class GooglePhotoPicker:
         self.flow = flow
         return flow
 
-    def start_auth(self, state: str | None = None, redirect_uri: str | None = None) -> tuple[str, str]:
+    def start_auth(
+        self,
+        state: str | None = None,
+        redirect_uri: str | None = None,
+        force_consent: bool = True,
+    ) -> tuple[str, str]:
         """Generate OAuth authorization URL and return its PKCE code verifier."""
         final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
         flow = self._build_flow(final_redirect_uri)
 
-        auth_url, _ = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
-            state=state,
-        )
+        auth_kwargs = {
+            "access_type": "offline",
+            "include_granted_scopes": "true",
+            "state": state,
+        }
+        if force_consent:
+            auth_kwargs["prompt"] = "consent"
+
+        auth_url, _ = flow.authorization_url(**auth_kwargs)
         if not flow.code_verifier:
             raise click.ClickException("Google OAuth code verifier was not generated.")
         return auth_url, flow.code_verifier

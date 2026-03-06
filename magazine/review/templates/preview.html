@@ -9,17 +9,85 @@
             Review the PDF in the browser, then download it when you're happy with how the cover and spreads feel.
         </p>
         <div class="preview-actions">
-            <a class="btn btn-primary" href="{{ download_url }}">Download PDF</a>
+            <button type="button" class="btn btn-primary" id="download-pdf">Download PDF</button>
             <a class="btn btn-ghost" href="{{ url_for('import_screen') }}">Create another</a>
         </div>
+        <p class="preview-status" id="preview-status">Loading your PDF preview…</p>
     </div>
 
     <div class="preview-frame">
         <iframe
+            id="preview-embed"
             class="preview-embed"
-            src="{{ pdf_url }}#view=FitH"
             title="Maison Folio PDF preview"
         ></iframe>
     </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const PDF_STORE = 'maison-folio-preview';
+    const PDF_KEY = 'latest';
+    const previewEmbed = document.getElementById('preview-embed');
+    const previewStatus = document.getElementById('preview-status');
+    const downloadButton = document.getElementById('download-pdf');
+    let previewUrl = null;
+
+    function openPreviewDb() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(PDF_STORE, 1);
+            req.onupgradeneeded = () => {
+                req.result.createObjectStore('pdfs');
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async function readPreviewBlob() {
+        const db = await openPreviewDb();
+        const payload = await new Promise((resolve, reject) => {
+            const tx = db.transaction('pdfs', 'readonly');
+            const req = tx.objectStore('pdfs').get(PDF_KEY);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+        db.close();
+        return payload;
+    }
+
+    async function mountPreview() {
+        try {
+            const payload = await readPreviewBlob();
+            if (!payload?.blob) {
+                previewStatus.textContent = 'Preview not available in this browser session. Generate the PDF again to preview it here.';
+                downloadButton.disabled = true;
+                return;
+            }
+
+            previewUrl = URL.createObjectURL(payload.blob);
+            previewEmbed.src = `${previewUrl}#view=FitH`;
+            previewStatus.textContent = 'Preview ready.';
+
+            downloadButton.addEventListener('click', () => {
+                const a = document.createElement('a');
+                a.href = previewUrl;
+                a.download = payload.filename || 'Maison-Folio.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            });
+        } catch (err) {
+            previewStatus.textContent = 'Could not load the preview. Generate the PDF again and retry.';
+            downloadButton.disabled = true;
+        }
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+    });
+
+    mountPreview();
+</script>
 {% endblock %}
