@@ -19,9 +19,6 @@ from magazine.config import (
     PICKER_API_BASE,
     ORIGINALS_DIR,
 )
-from magazine.services.importer import import_existing_paths
-
-
 class GooglePhotoPicker:
     """Manages the Google Photos Picker API flow."""
 
@@ -29,6 +26,7 @@ class GooglePhotoPicker:
         self.credentials = None
         self.session_id = None
         self.picker_uri = None
+        self.flow = None
 
     @classmethod
     def from_saved_state(cls, token: str, session_id: str | None = None):
@@ -37,8 +35,8 @@ class GooglePhotoPicker:
         picker.session_id = session_id
         return picker
 
-    def get_auth_url(self, state: str | None = None, redirect_uri: str | None = None) -> str:
-        """Generate OAuth authorization URL."""
+    @staticmethod
+    def _client_config(redirect_uri: str | None = None) -> dict:
         if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
             raise click.ClickException(
                 "Google OAuth credentials not configured.\n"
@@ -48,28 +46,36 @@ class GooglePhotoPicker:
                 "4. Add the credentials to your Vercel project environment variables"
             )
 
-        client_config = {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [GOOGLE_REDIRECT_URI],
-            }
-        }
-
         final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
         if not final_redirect_uri:
             raise click.ClickException(
                 "Google redirect URI is missing. Set GOOGLE_REDIRECT_URI for your deployed site."
             )
 
-        client_config["web"]["redirect_uris"] = [final_redirect_uri]
+        return {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [final_redirect_uri],
+            }
+        }
 
-        self.flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
-        self.flow.redirect_uri = final_redirect_uri
+    def _build_flow(self, redirect_uri: str | None = None) -> Flow:
+        final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
+        client_config = self._client_config(final_redirect_uri)
+        flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
+        flow.redirect_uri = final_redirect_uri
+        self.flow = flow
+        return flow
 
-        auth_url, _ = self.flow.authorization_url(
+    def get_auth_url(self, state: str | None = None, redirect_uri: str | None = None) -> str:
+        """Generate OAuth authorization URL."""
+        final_redirect_uri = redirect_uri or GOOGLE_REDIRECT_URI
+        flow = self._build_flow(final_redirect_uri)
+
+        auth_url, _ = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
@@ -77,8 +83,10 @@ class GooglePhotoPicker:
         )
         return auth_url
 
-    def handle_callback(self, authorization_response: str):
+    def handle_callback(self, authorization_response: str, redirect_uri: str | None = None):
         """Exchange authorization code for credentials."""
+        if self.flow is None:
+            self._build_flow(redirect_uri)
         self.flow.fetch_token(authorization_response=authorization_response)
         self.credentials = self.flow.credentials
 
@@ -194,62 +202,3 @@ class GooglePhotoPicker:
             results = list(pool.map(_download, items))
 
         return [p for p in results if p is not None]
-
-
-def import_google_photos():
-    """Run the Google Photos import flow using Flask for OAuth callback."""
-    from flask import Flask, request, redirect
-
-    picker = GooglePhotoPicker()
-    app = Flask(__name__)
-    server_thread = None
-
-    @app.route("/")
-    def index():
-        auth_url = picker.get_auth_url()
-        return redirect(auth_url)
-
-    @app.route("/oauth/callback")
-    def oauth_callback():
-        picker.handle_callback(request.url)
-        picker_uri = picker.create_session()
-        return (
-            f'<h2>Authorization successful!</h2>'
-            f'<p>Now select your photos in Google Photos:</p>'
-            f'<p><a href="{picker_uri}" target="_blank">Open Google Photos Picker</a></p>'
-            f'<p>After selecting photos, come back here and '
-            f'<a href="/wait">click here to download</a>.</p>'
-        )
-
-    @app.route("/wait")
-    def wait_for_selection():
-        click.echo("Waiting for photo selection...")
-        success = picker.poll_session(timeout=600)
-        if not success:
-            return "<h2>Timeout waiting for photo selection.</h2>"
-
-        items = picker.get_media_items()
-        click.echo(f"Found {len(items)} selected photos. Downloading...")
-        paths = picker.download_all(items)
-        click.echo(f"Downloaded {len(paths)} photos. Processing import...")
-        result = import_existing_paths(paths, source_prefix="google")
-        for path in paths:
-            try:
-                path.unlink(missing_ok=True)
-            except Exception:
-                pass
-
-        # Shutdown the server
-        func = request.environ.get("werkzeug.server.shutdown")
-        if func:
-            func()
-
-        return (
-            f"<h2>Done!</h2>"
-            f"<p>Imported {result['imported']} photos ({result['skipped']} duplicates skipped).</p>"
-            f"<p>You can close this window and return to the terminal.</p>"
-        )
-
-    click.echo("Opening browser for Google Photos authorization...")
-    click.launch("http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000, debug=False)

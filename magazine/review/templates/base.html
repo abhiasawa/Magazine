@@ -6,7 +6,7 @@
     <title>{{ title | default('Magazine') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="page-{{ active_page | default('studio') }}">
+<body>
     <div class="site-bg"></div>
     <div class="site-grain"></div>
 
@@ -18,33 +18,16 @@
                 <span>Print Studio</span>
             </div>
 
-            <a href="{{ url_for('import_screen') }}" class="wordmark" aria-label="Magazine home">
-                <span class="wordmark-note">Issue Builder</span>
+            <div class="wordmark" aria-label="Magazine home">
+                <span class="wordmark-note">Google Photos to Print</span>
                 <span class="wordmark-title">Magazine</span>
-            </a>
-
-            <nav class="progress-nav" aria-label="Studio progress">
-                <a href="{{ url_for('import_screen') }}" class="progress-link {{ 'active' if active_page == 'import' else '' }}">
-                    <span class="progress-index">01</span>
-                    <span class="progress-label">Import</span>
-                </a>
-                <a href="{{ url_for('review_candidates') }}" class="progress-link {{ 'active' if active_page in ['review', 'others'] else '' }}">
-                    <span class="progress-index">02</span>
-                    <span class="progress-label">Select</span>
-                </a>
-                <a href="{{ url_for('summary') }}" class="progress-link {{ 'active' if active_page == 'summary' else '' }}">
-                    <span class="progress-index">03</span>
-                    <span class="progress-label">Generate</span>
-                </a>
-            </nav>
-
-            {% if counts %}
-            <div class="masthead-tally" aria-label="Project counts">
-                <span><strong data-count="total">{{ counts.total }}</strong> imported</span>
-                <span><strong data-count="approved">{{ counts.approved }}</strong> selected</span>
-                <span><strong data-count="hero">{{ counts.hero }}</strong> hero</span>
             </div>
-            {% endif %}
+
+            <div class="progress-nav" aria-label="Studio flow">
+                <span class="progress-link">1. Connect</span>
+                <span class="progress-link">2. Add title</span>
+                <span class="progress-link">3. Generate PDF</span>
+            </div>
         </div>
     </header>
 
@@ -58,241 +41,13 @@
         {% endif %}
     {% endwith %}
 
-    <section class="global-job-banner" id="global-job-banner" hidden>
-        <div class="global-job-copy">
-            <span class="global-job-label">Google import</span>
-            <strong id="global-job-status">Waiting for import status...</strong>
-            <span id="global-job-detail"></span>
-        </div>
-        <a href="{{ url_for('review_candidates') }}" class="btn btn-secondary" id="global-job-cta" hidden>Open selection</a>
-    </section>
-
     <main class="page-wrap">
         {% block content %}{% endblock %}
     </main>
 
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <span class="lightbox-close">&times;</span>
-        <img id="lightbox-img" src="" alt="Full size photo">
-    </div>
-
     <footer class="site-footer">
         <p>Editorial print studio for heirloom-quality magazines.</p>
     </footer>
-
-    <script>
-        window.activeCardId = null;
-        window.googleJobState = {
-            jobId: localStorage.getItem('magazineGoogleJobId') || null,
-            pollTimer: null,
-        };
-
-        function togglePhoto(photoId, action) {
-            fetch('/api/toggle', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: photoId, action: action})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                const card = document.getElementById('card-' + photoId);
-                if (!card) return;
-                card.classList.remove('approved', 'rejected', 'pending');
-                card.classList.add(data.status);
-                const statusBadge = card.querySelector('[data-status-label]');
-                if (statusBadge) {
-                    statusBadge.textContent = data.status;
-                }
-                updateCounts();
-            });
-        }
-
-        function toggleHero(photoId, isPinned, caption) {
-            fetch('/api/review/pin-hero', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: photoId, hero_pin: isPinned, caption: caption || ''})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                const card = document.getElementById('card-' + photoId);
-                if (!card) return;
-                card.classList.toggle('hero', data.hero_pin);
-                const pinBtn = card.querySelector('.pin-btn');
-                if (pinBtn) {
-                    pinBtn.textContent = data.hero_pin ? 'Hero pinned' : 'Pin hero';
-                }
-                const heroBadge = card.querySelector('[data-hero-label]');
-                if (heroBadge) {
-                    heroBadge.hidden = !data.hero_pin;
-                }
-                updateCounts();
-            });
-        }
-
-        function batchAction(action, pageType) {
-            fetch('/api/batch', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action: action, page: pageType || 'candidates'})
-            })
-            .then(r => r.json())
-            .then(() => location.reload());
-        }
-
-        function updateCounts() {
-            fetch('/api/counts')
-            .then(r => r.json())
-            .then(data => {
-                document.querySelectorAll('[data-count]').forEach(el => {
-                    const key = el.dataset.count;
-                    if (data[key] !== undefined) {
-                        el.textContent = data[key];
-                    }
-                });
-            });
-        }
-
-        function openLightbox(src) {
-            document.getElementById('lightbox-img').src = src;
-            document.getElementById('lightbox').classList.add('active');
-        }
-
-        function closeLightbox() {
-            document.getElementById('lightbox').classList.remove('active');
-        }
-
-        function setStoredGoogleJob(jobId) {
-            window.googleJobState.jobId = jobId;
-            if (jobId) {
-                localStorage.setItem('magazineGoogleJobId', jobId);
-            } else {
-                localStorage.removeItem('magazineGoogleJobId');
-            }
-        }
-
-        function renderGoogleJobBanner(data) {
-            const banner = document.getElementById('global-job-banner');
-            const status = document.getElementById('global-job-status');
-            const detail = document.getElementById('global-job-detail');
-            const cta = document.getElementById('global-job-cta');
-            if (!banner || !status || !detail || !cta) return;
-
-            if (!data) {
-                banner.hidden = true;
-                cta.hidden = true;
-                return;
-            }
-
-            banner.hidden = false;
-            status.textContent = data.message || data.status || 'Google import in progress';
-            const details = [];
-            if (typeof data.imported !== 'undefined') {
-                details.push(`Imported ${data.imported}`);
-            }
-            if (data.total) {
-                details.push(`Selected ${data.total}`);
-            } else if (data.selected_total) {
-                details.push(`Selected ${data.selected_total}`);
-            }
-            if (data.skipped) {
-                details.push(`${data.skipped} duplicates skipped`);
-            }
-            if (Array.isArray(data.events) && data.events.length) {
-                const last = data.events[data.events.length - 1];
-                if (last?.stage) {
-                    details.push(`Stage ${String(last.stage).replaceAll('_', ' ')}`);
-                }
-            }
-            detail.textContent = details.join(' · ');
-            cta.hidden = data.status !== 'done';
-        }
-
-        async function pollStoredGoogleJob(force = false) {
-            const jobId = window.googleJobState.jobId;
-            if (!jobId) {
-                renderGoogleJobBanner(null);
-                return;
-            }
-
-            try {
-                const res = await fetch(`/api/import/jobs/${jobId}`);
-                const data = await res.json();
-                if (!data.success) {
-                    renderGoogleJobBanner({status: 'error', message: data.error || 'Google import could not be found.'});
-                    setStoredGoogleJob(null);
-                    return;
-                }
-
-                renderGoogleJobBanner(data);
-                if (typeof updateCounts === 'function') {
-                    updateCounts();
-                }
-
-                if (data.status === 'done' || data.status === 'error') {
-                    if (data.status === 'done') {
-                        setTimeout(() => setStoredGoogleJob(null), 120000);
-                    } else {
-                        setStoredGoogleJob(null);
-                    }
-                    if (window.googleJobState.pollTimer && !force) {
-                        clearInterval(window.googleJobState.pollTimer);
-                        window.googleJobState.pollTimer = null;
-                    }
-                }
-            } catch (err) {
-                renderGoogleJobBanner({status: 'error', message: err.message || 'Failed to read import job status.'});
-            }
-        }
-
-        function ensureGoogleJobPolling() {
-            if (!window.googleJobState.jobId || window.googleJobState.pollTimer) return;
-            pollStoredGoogleJob(true);
-            window.googleJobState.pollTimer = setInterval(() => pollStoredGoogleJob(), 2500);
-        }
-
-        window.addEventListener('storage', event => {
-            if (event.key === 'magazineGoogleJobId') {
-                window.googleJobState.jobId = event.newValue || null;
-                if (!window.googleJobState.jobId && window.googleJobState.pollTimer) {
-                    clearInterval(window.googleJobState.pollTimer);
-                    window.googleJobState.pollTimer = null;
-                    renderGoogleJobBanner(null);
-                    return;
-                }
-                ensureGoogleJobPolling();
-            }
-        });
-
-        document.addEventListener('click', event => {
-            const card = event.target.closest('.photo-card');
-            if (card) {
-                window.activeCardId = card.dataset.photoId;
-            }
-        });
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeLightbox();
-            if (!window.activeCardId) return;
-            if (event.key.toLowerCase() === 'j') {
-                togglePhoto(window.activeCardId, 'approve');
-            }
-            if (event.key.toLowerCase() === 'k') {
-                togglePhoto(window.activeCardId, 'reject');
-            }
-            if (event.key.toLowerCase() === 'h') {
-                const card = document.getElementById('card-' + window.activeCardId);
-                if (!card) return;
-                const next = !card.classList.contains('hero');
-                const caption = card.querySelector('.caption-input')?.value || '';
-                toggleHero(window.activeCardId, next, caption);
-            }
-        });
-
-        ensureGoogleJobPolling();
-    </script>
 
     {% block scripts %}{% endblock %}
 </body>

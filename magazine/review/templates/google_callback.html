@@ -5,21 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Continue to Google Photos</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap');
-
+        @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600&family=Instrument+Sans:wght@400;500;600&display=swap');
         :root {
-            --paper: #f5efe6;
-            --ink: #231914;
-            --muted: #706257;
-            --line: rgba(80, 60, 43, 0.14);
-            --panel: rgba(255, 255, 255, 0.88);
-            --accent: #402c1e;
+            --paper: #f1ece5;
+            --ink: #14110f;
+            --muted: #70665f;
+            --line: rgba(20, 17, 15, 0.14);
+            --surface: rgba(255, 251, 246, 0.96);
+            --accent: #14110f;
+            --white: #fffaf4;
         }
-
-        * {
-            box-sizing: border-box;
-        }
-
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
@@ -28,92 +24,74 @@
             padding: 24px;
             color: var(--ink);
             font-family: "Instrument Sans", "Helvetica Neue", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(208, 183, 157, 0.34), transparent 34%),
-                radial-gradient(circle at bottom right, rgba(112, 84, 61, 0.14), transparent 40%),
-                linear-gradient(180deg, #f8f3ec 0%, var(--paper) 100%);
+            background: linear-gradient(180deg, #121212 0 132px, var(--paper) 132px 100%);
         }
-
-        .callback-card {
+        .card {
             width: min(620px, 100%);
-            padding: 30px;
-            border-radius: 28px;
+            padding: 28px;
             border: 1px solid var(--line);
-            background: var(--panel);
-            box-shadow: 0 30px 80px rgba(39, 26, 16, 0.12);
+            background: var(--surface);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.12);
         }
-
         .eyebrow {
-            margin: 0 0 12px;
+            margin: 0 0 10px;
             font-size: 11px;
             font-weight: 700;
-            letter-spacing: 0.18em;
+            letter-spacing: 0.2em;
             text-transform: uppercase;
             color: var(--muted);
         }
-
         h1 {
             margin: 0;
-            font-family: "Cormorant Garamond", Georgia, serif;
-            font-size: clamp(40px, 8vw, 58px);
-            font-weight: 600;
+            font-family: "Bodoni Moda", "Times New Roman", serif;
+            font-size: clamp(38px, 8vw, 58px);
             line-height: 0.92;
             letter-spacing: -0.04em;
         }
-
         p {
             margin: 14px 0 0;
             color: var(--muted);
             line-height: 1.7;
         }
-
-        .actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 24px;
-        }
-
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             min-height: 48px;
+            margin-top: 24px;
             padding: 0 18px;
-            border-radius: 999px;
-            border: 1px solid rgba(64, 44, 30, 0.14);
+            background: var(--accent);
+            color: var(--white);
             text-decoration: none;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.16em;
             text-transform: uppercase;
         }
-
-        .btn-primary {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fffaf5;
-        }
-
-        .btn-secondary {
-            background: rgba(64, 44, 30, 0.04);
-            color: var(--accent);
-        }
     </style>
 </head>
 <body>
-    <main class="callback-card">
+    <main class="card">
         <p class="eyebrow">Magazine</p>
         <h1>Continuing to Google Photos…</h1>
-        <p>This same window will take you straight into the Google Photos picker. No extra tabs are required.</p>
-        <p>If nothing happens, use the button below.</p>
-        <div class="actions">
-            <a class="btn btn-primary" href="{{ picker_uri }}">Continue in this window</a>
-            <a class="btn btn-secondary" href="/" target="_blank" rel="noreferrer">Return to Magazine</a>
-        </div>
+        <p>This same window is moving directly into the Google Photos picker.</p>
+        <p>If the redirect does not continue automatically, use the button below.</p>
+        <a class="btn" href="{{ picker_uri }}">Continue</a>
     </main>
 
     <script>
+        try {
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'magazine-google-picker-ready',
+                    state: {{ google_state|tojson }},
+                    token: {{ google_token|tojson }},
+                    sessionId: {{ google_session_id|tojson }}
+                }, window.location.origin);
+            }
+        } catch (err) {
+            // Ignore opener messaging failures and continue to the picker.
+        }
         window.location.replace({{ picker_uri|tojson }});
     </script>
 </body>

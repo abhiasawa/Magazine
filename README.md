@@ -1,61 +1,61 @@
 # Magazine
 
-Create beautiful print magazines from your photos. Import from your browser or Google Photos, curate in a premium web UI, and generate dynamic-page editorial layouts ready for print export.
+Magazine is a Google Photos to PDF studio for building editorial-style print magazines with the fewest possible decisions.
 
-## Features
+## Product Flow
 
-- **Unified Web Workflow**: `Import -> Review -> Story -> Generate -> Preflight`
-- **Dual Import Sources**: Upload from local machine or sync from Google Photos Picker API
-- **Dynamic Pagination**: Auto page count based on approved photos (defaults: 28-72 pages, rounded to print signatures)
-- **Hero Pinning**: Mark must-have photos for premium spread placement
-- **Editorial Luxury Mode**: Soft luxury print layout with multiple spread templates
-- **Manual Curation First**: Face detection is optional; you can simply approve the right photos yourself
-- **Preflight Checks**: Generate `preflight_report.json` and optional proof PNG renders
-- **Print-Ready PDF**: A4 size, 300 DPI, 3mm bleed output
+The web app now follows one path only:
 
-## Hosted Workflow
+1. Connect Google Photos
+2. Select the photos in Google Photos
+3. Add a cover title
+4. Generate the PDF
 
-Use the public deployment:
+There is no local upload flow, no manual review grid, and no hero-pin workflow in the product UI.
+
+## Live App
 
 [https://photo-magazine.vercel.app](https://photo-magazine.vercel.app)
 
-The hosted flow is:
-1. Import photos from your browser or Google Photos
-2. Review and approve the keepers
-3. Generate the magazine
+## Core Behavior
+
+- Google Photos is the only import source
+- Page count is automatic
+- Every selected photo is imported and approved for layout
+- The PDF is generated directly from the Google selection
+- Optional copy is limited to title, subtitle, and one opening line
 
 ## Google Photos Setup
 
-1. Create a project at [Google Cloud Console](https://console.cloud.google.com)
-2. Enable the **Google Photos Picker API**
-3. Create **OAuth 2.0 credentials** (Web application type)
-4. Add authorized JavaScript origin: `https://photo-magazine.vercel.app`
-5. Add authorized redirect URI: `https://photo-magazine.vercel.app/oauth/callback`
-6. Add the credentials in Vercel project environment variables:
+Configure a Google Cloud OAuth client for the deployed app:
+
+1. Enable the **Google Photos Picker API**
+2. Create an OAuth **Web application**
+3. Add JavaScript origin: `https://photo-magazine.vercel.app`
+4. Add redirect URI: `https://photo-magazine.vercel.app/oauth/callback`
+5. Add these Vercel environment variables:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `GOOGLE_REDIRECT_URI=https://photo-magazine.vercel.app/oauth/callback`
 
-## Vercel Deployment
+## Deployment Notes
 
-The repository includes a Vercel Flask entrypoint at `api/index.py` and `vercel.json`, so it can be deployed directly on Vercel.
+- The project ships with `api/index.py` and `vercel.json` for Vercel deployment
+- Vercel server storage is ephemeral, so generated artifacts are request-scoped unless durable storage is added
+- Hosted PDF rendering still depends on available runtime libraries or the Chrome fallback path
 
-Important constraints:
-- Vercel uses ephemeral server storage, so imported photos and generated artifacts are not durable across deploys or cold starts.
-- Google Photos requires production OAuth credentials and the deployed callback URL to be added in Google Cloud.
-- PDF export is still limited by hosted rendering constraints unless you add a dedicated rendering/storage service.
+## Local Development
 
-## Requirements
-
-- Python 3.10+
-- Optional system dependencies for WeasyPrint (see [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html)):
-  - **Linux**: `sudo apt install libpango1.0-dev libcairo2-dev libgdk-pixbuf2.0-dev`
-  - **macOS**: `brew install pango cairo libffi`
+```bash
+pip install -e .
+magazine web
+```
 
 ## Output
 
-The generated magazine PDF is designed for print with:
-- A4 page size (210mm x 297mm)
-- 3mm bleed on all sides
-- 300 DPI photo resolution
-- High-quality JPEG compression (95%)
+The generated PDF targets print:
+
+- A4 pages
+- 3mm bleed
+- 300 DPI image pipeline
+- editorial layout system with dynamic pagination

@@ -1,146 +1,311 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="studio-layout">
-    <aside class="stage-rail">
-        <p class="section-kicker">Issue 01</p>
-        <h1 class="stage-title">Start the issue with the right archive.</h1>
-        <p class="stage-copy">Import from your machine or from Google Photos, then move straight into the selection edit.</p>
+<section class="simple-shell">
+    <aside class="simple-rail">
+        <p class="section-kicker">Simple Flow</p>
+        <h1 class="stage-title">Select the photos in Google Photos. Add a cover title. Generate the magazine.</h1>
+        <p class="stage-copy">No local upload. No review queue. No extra decisions. The photos you choose in Google Photos become the issue.</p>
+
+        <div class="rail-quote">
+            <p>The best magazine starts with a sharp edit. Choose only the frames you want printed.</p>
+        </div>
 
         <dl class="metric-list">
             <div class="metric-item">
-                <dt>Imported</dt>
-                <dd data-count="total">{{ counts.total }}</dd>
-            </div>
-            <div class="metric-item">
                 <dt>Selected</dt>
-                <dd data-count="approved">{{ counts.approved }}</dd>
+                <dd id="selected-total">0</dd>
             </div>
             <div class="metric-item">
-                <dt>Hero pins</dt>
-                <dd data-count="hero">{{ counts.hero }}</dd>
+                <dt>Estimated pages</dt>
+                <dd id="estimated-pages">0</dd>
+            </div>
+            <div class="metric-item">
+                <dt>Status</dt>
+                <dd id="flow-state">Waiting</dd>
             </div>
         </dl>
-
-        <div class="rail-quote">
-            <p>Start with fewer, stronger frames. The magazine gets better when the opening edit is ruthless.</p>
-        </div>
-
-        <a href="{{ url_for('review_candidates') }}" class="btn btn-primary btn-wide {{ '' if counts.total > 0 else 'btn-disabled-link' }}">Continue to selection</a>
     </aside>
 
-    <div class="stage-surface">
-        <div class="surface-intro">
-            <p class="surface-kicker">Import Sources</p>
-            <h2 class="surface-title">Two ways in. One clean editorial flow.</h2>
-            <p class="surface-copy">Bring the archive in first. The studio handles the shortlist, pacing, and final PDF after that.</p>
-        </div>
-
-        <article class="source-sheet source-sheet-feature">
-            <div class="source-heading">
-                <p class="source-kicker">Computer</p>
-                <h2>Upload a folder or a handpicked set.</h2>
-                <p class="source-summary">Fastest route. Drop a folder, import the best material, and move on.</p>
+    <div class="simple-stage">
+        <section class="hero-panel">
+            <div class="surface-intro">
+                <p class="surface-kicker">Google Photos</p>
+                <h2 class="surface-title">One source. One decision. One finished magazine.</h2>
+                <p class="surface-copy">Connect your Google Photos library, choose the final frames there, then generate the PDF here.</p>
             </div>
 
-            <form id="local-upload-form" class="upload-form" enctype="multipart/form-data">
-                <label class="dropzone" for="photos-input">
-                    <input type="file" id="photos-input" name="photos" accept="image/*" multiple webkitdirectory directory>
-                    <span class="dropzone-tag">Local import</span>
-                    <strong>Drop images here</strong>
-                    <span>Select files or an entire folder from your computer.</span>
-                </label>
-                <button type="submit" class="btn btn-primary">Import local photos</button>
-            </form>
+            <div class="google-flow-card">
+                <div class="flow-step">
+                    <span class="flow-index">01</span>
+                    <div>
+                        <h3>Connect Google Photos</h3>
+                        <p>Open the Google window and approve access.</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <span class="flow-index">02</span>
+                    <div>
+                        <h3>Select the final photos</h3>
+                        <p>Use Google Photos to choose exactly what should appear in the magazine.</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <span class="flow-index">03</span>
+                    <div>
+                        <h3>Generate the PDF</h3>
+                        <p>Once the selection is ready, add the cover line and export.</p>
+                    </div>
+                </div>
 
-            <div class="import-result" id="local-result"></div>
-        </article>
-
-        <article class="source-sheet {{ '' if google_configured else 'source-sheet-muted' }}">
-            <div class="source-heading">
-                <p class="source-kicker">Google Photos</p>
-                <h2>Connect your library in one browser flow.</h2>
-                <p class="source-summary">{{ google_status_message }}</p>
-            </div>
-
-            <ol class="source-sequence">
-                <li>One Google window opens.</li>
-                <li>Approve access and choose the photos for this issue in that same window.</li>
-                <li>Return here while the import finishes.</li>
-            </ol>
-
-            {% if google_configured %}
-            <button id="google-start" class="btn btn-secondary">Connect Google Photos</button>
-            {% else %}
-            <button class="btn btn-secondary" disabled>Google Photos unavailable</button>
-            {% endif %}
-
-            <div class="import-result" id="google-result">
-                {% if not google_configured %}
-                Use local upload until Google Photos is configured for this deployment.
+                {% if google_configured %}
+                <button id="google-start" class="btn btn-primary btn-wide">Select photos from Google Photos</button>
+                {% else %}
+                <button class="btn btn-secondary btn-wide" disabled>Google Photos unavailable</button>
                 {% endif %}
+                <button type="button" id="google-reset" class="btn btn-secondary btn-wide">Start over</button>
+
+                <div class="status-panel" id="google-status-panel">
+                    <p class="status-label">Import status</p>
+                    <strong id="google-status">Ready to connect</strong>
+                    <p id="google-detail">Choose your photos in Google Photos. When the selection is complete, generation unlocks automatically.</p>
+                </div>
             </div>
-        </article>
+        </section>
+
+        <section class="generate-panel" id="generate-panel" hidden>
+            <div class="surface-intro compact-intro">
+                <p class="surface-kicker">Issue Details</p>
+                <h2 class="surface-title">Add the cover line and generate.</h2>
+                <p class="surface-copy">Keep it minimal. A strong title is enough.</p>
+            </div>
+
+            <form action="{{ url_for('generate') }}" method="POST" class="generate-form" id="generate-form">
+                <input type="hidden" name="google_token" id="google-token-input">
+                <input type="hidden" name="google_session_id" id="google-session-input">
+                <input type="hidden" name="pages" value="auto">
+                <input type="hidden" name="style" value="editorial_luxury">
+                <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
+                <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
+                <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
+                <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
+                <input type="hidden" name="run_preflight" value="on">
+
+                <label class="field-group" for="title">
+                    <span>Cover title</span>
+                    <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
+                </label>
+
+                <label class="field-group" for="subtitle">
+                    <span>Subtitle (optional)</span>
+                    <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}" placeholder="Rome, 2026">
+                </label>
+
+                <label class="field-group" for="dedication">
+                    <span>Inside line (optional)</span>
+                    <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
+                </label>
+
+                <button type="submit" class="btn btn-primary btn-wide" id="generate-button">Generate Magazine PDF</button>
+            </form>
+        </section>
+
     </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const localForm = document.getElementById('local-upload-form');
-    const localResult = document.getElementById('local-result');
     const googleStart = document.getElementById('google-start');
-    const googleResult = document.getElementById('google-result');
+    const googleStatus = document.getElementById('google-status');
+    const googleDetail = document.getElementById('google-detail');
+    const generatePanel = document.getElementById('generate-panel');
+    const tokenInput = document.getElementById('google-token-input');
+    const sessionInput = document.getElementById('google-session-input');
+    const googleReset = document.getElementById('google-reset');
+    const generateForm = document.getElementById('generate-form');
+    const generateButton = document.getElementById('generate-button');
+    const selectedTotalEl = document.getElementById('selected-total');
+    const estimatedPagesEl = document.getElementById('estimated-pages');
+    const flowStateEl = document.getElementById('flow-state');
+    const storageKey = 'magazineGoogleSession';
+    let pollTimer = null;
 
-    if (localForm) {
-        localForm.addEventListener('submit', async event => {
-            event.preventDefault();
-            const formData = new FormData(localForm);
-            localResult.textContent = 'Importing your selection...';
-            try {
-                const res = await fetch('/api/import/local', {method: 'POST', body: formData});
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || 'Import failed');
-                localResult.textContent = `Imported ${data.imported} of ${data.total} files. ${data.skipped} duplicates were skipped.`;
-                updateCounts();
-            } catch (err) {
-                localResult.textContent = err.message;
-            }
+    function loadSession() {
+        try {
+            return JSON.parse(localStorage.getItem(storageKey) || 'null');
+        } catch {
+            return null;
+        }
+    }
+
+    function saveSession(session) {
+        if (!session) {
+            localStorage.removeItem(storageKey);
+            return;
+        }
+        localStorage.setItem(storageKey, JSON.stringify(session));
+    }
+
+    async function refreshEstimate(selectedTotal) {
+        const params = new URLSearchParams({
+            selected_total: String(selectedTotal || 0),
+            density: '{{ story_config.pagination.density }}',
+            min_pages: '{{ story_config.pagination.min_pages }}',
+            max_pages: '{{ story_config.pagination.max_pages }}',
+            page_step: '{{ story_config.pagination.page_step }}',
+            fixed_pages: '8',
         });
+        const res = await fetch(`/api/layout/estimate?${params.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+            estimatedPagesEl.textContent = data.estimated_pages;
+        }
     }
 
-    function syncGoogleResultFromBanner() {
-        const status = document.getElementById('global-job-status')?.textContent || '';
-        const detail = document.getElementById('global-job-detail')?.textContent || '';
-        if (!status && !detail) return;
-        googleResult.textContent = [status, detail].filter(Boolean).join(' · ');
+    function renderSession(session) {
+        if (!session) {
+            googleStatus.textContent = 'Ready to connect';
+            googleDetail.textContent = 'Choose your photos in Google Photos. When the selection is complete, generation unlocks automatically.';
+            flowStateEl.textContent = 'Waiting';
+            selectedTotalEl.textContent = '0';
+            estimatedPagesEl.textContent = '0';
+            generatePanel.hidden = true;
+            if (tokenInput) tokenInput.value = '';
+            if (sessionInput) sessionInput.value = '';
+            return;
+        }
+
+        googleStatus.textContent = session.message || 'Working';
+        googleDetail.textContent = session.detail || '';
+        flowStateEl.textContent = session.status || 'Working';
+        selectedTotalEl.textContent = session.selectedTotal || 0;
+        if (tokenInput) tokenInput.value = session.token || '';
+        if (sessionInput) sessionInput.value = session.sessionId || '';
+        refreshEstimate(session.selectedTotal || 0);
+        generatePanel.hidden = session.status !== 'ready';
     }
+
+    async function pollSelectionStatus() {
+        const session = loadSession();
+        if (!session?.token || !session?.sessionId) {
+            renderSession(null);
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/google/status', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token: session.token, session_id: session.sessionId}),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                session.status = 'error';
+                session.message = data.error || 'Google status could not be read.';
+                session.detail = 'Start the Google Photos selection again.';
+                saveSession(session);
+                renderSession(session);
+                clearInterval(pollTimer);
+                pollTimer = null;
+                return;
+            }
+
+            session.status = data.status;
+            session.message = data.message;
+            session.detail = data.status === 'ready'
+                ? 'Your selection is ready. Add the cover line and generate the PDF.'
+                : 'Keep the Google Photos window open until you finish the selection there.';
+            session.selectedTotal = data.selected_total || 0;
+            saveSession(session);
+            renderSession(session);
+
+            if (data.status === 'ready' && pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        } catch (err) {
+            session.status = 'error';
+            session.message = err.message || 'Google status could not be read.';
+            session.detail = 'Start the Google Photos selection again.';
+            saveSession(session);
+            renderSession(session);
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+    }
+
+    function startPolling() {
+        if (pollTimer) return;
+        pollSelectionStatus();
+        pollTimer = setInterval(pollSelectionStatus, 2500);
+    }
+
+    window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin) return;
+        const data = event.data || {};
+        if (data.type !== 'magazine-google-picker-ready') return;
+        const session = {
+            state: data.state || '',
+            token: data.token || '',
+            sessionId: data.sessionId || '',
+            status: 'waiting_selection',
+            message: 'Choose the final photos in Google Photos.',
+            detail: 'Once you press Done there, this page will unlock generation automatically.',
+            selectedTotal: 0,
+        };
+        saveSession(session);
+        renderSession(session);
+        startPolling();
+    });
 
     if (googleStart) {
         googleStart.addEventListener('click', async () => {
-            googleResult.textContent = 'Opening Google sign-in...';
+            saveSession(null);
+            googleStatus.textContent = 'Opening Google Photos…';
+            googleDetail.textContent = 'Approve access, then choose the final photos in the Google window.';
             const res = await fetch('/api/import/google/start', {method: 'POST'});
             const data = await res.json();
             if (!data.success) {
-                googleResult.textContent = data.error;
+                googleStatus.textContent = data.error || 'Could not start Google Photos.';
                 return;
             }
-            setStoredGoogleJob(data.job_id);
             const popup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
             if (!popup) {
-                googleResult.textContent = 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
-                return;
+                googleStatus.textContent = 'Allow pop-ups for this site and try again.';
+                googleDetail.textContent = '';
             }
-            googleResult.textContent = 'Waiting for Google approval...';
-            ensureGoogleJobPolling();
         });
     }
 
-    if (window.googleJobState?.jobId) {
-        syncGoogleResultFromBanner();
-        ensureGoogleJobPolling();
+    if (googleReset) {
+        googleReset.addEventListener('click', () => {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            saveSession(null);
+            renderSession(null);
+        });
     }
 
-    setInterval(syncGoogleResultFromBanner, 1000);
+    if (generateForm && generateButton) {
+        generateForm.addEventListener('submit', () => {
+            generateButton.disabled = true;
+            generateButton.textContent = 'Generating PDF…';
+        });
+    }
+
+    const existing = loadSession();
+    if (existing) {
+        renderSession(existing);
+        if (existing.status !== 'ready' && existing.status !== 'error') {
+            startPolling();
+        }
+    } else {
+        renderSession(null);
+    }
 </script>
 {% endblock %}
