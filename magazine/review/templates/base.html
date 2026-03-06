@@ -5,51 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title | default('Magazine') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.svg') }}">
     <meta name="theme-color" content="#0c0b0a">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="site-bg"></div>
-    <div class="site-grain"></div>
+    <div class="page">
+        <header class="site-header">
+            <span class="brand">Magazine</span>
+        </header>
 
-    <header class="masthead-wrap">
-        <div class="masthead">
-            <div class="brand-lockup" aria-label="Magazine home">
-                <span class="brand-mark">Magazine</span>
-                <span class="brand-note">Google Photos to print</span>
-            </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="flash-stack">
+                    {% for category, message in messages %}
+                        <div class="message message-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
 
-            <div class="masthead-copy">
-                <span class="masthead-kicker">Editorial print studio</span>
-                <span class="masthead-title">Magazine</span>
-            </div>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
 
-            <div class="progress-nav" aria-label="Studio flow">
-                <span class="progress-link">Connect</span>
-                <span class="progress-link">Select</span>
-                <span class="progress-link">Generate</span>
-            </div>
-        </div>
-    </header>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <section class="flash-stack">
-                {% for category, message in messages %}
-                    <div class="message message-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            </section>
-        {% endif %}
-    {% endwith %}
-
-    <main class="page-wrap">
-        {% block content %}{% endblock %}
-    </main>
-
-    <footer class="site-footer">
-        <p>Magazine turns a Google Photos selection into a print-ready editorial PDF.</p>
-    </footer>
+        <footer class="site-footer">
+            <p>Google Photos in. Print-ready editorial PDF out.</p>
+        </footer>
+    </div>
 
     {% block scripts %}{% endblock %}
 </body>

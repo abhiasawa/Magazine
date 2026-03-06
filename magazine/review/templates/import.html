@@ -1,142 +1,80 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="landing-shell">
-    <section class="hero-grid">
-        <div class="hero-copy">
-            <p class="eyebrow">Print-worthy in one pass</p>
-            <h1 class="hero-title">Turn a Google Photos selection into an editorial magazine worth printing.</h1>
-            <p class="hero-subtitle">No local upload. No review maze. No setup ritual. Choose the final frames in Google Photos, add a title, and generate the PDF.</p>
+<section class="hero">
+    <h1 class="hero-title">Your photos, printed editorial.</h1>
+    <p class="hero-sub">Select photos in Google Photos. Add a title. Get a print-ready magazine PDF. Nothing else to configure.</p>
+</section>
 
-            <div class="hero-cta-panel">
-                <p class="cta-kicker">Step one</p>
-                {% if google_configured %}
-                <button id="google-start" class="btn btn-primary btn-hero">Connect Google Photos</button>
-                {% else %}
-                <button class="btn btn-secondary btn-hero" disabled>Google Photos unavailable</button>
-                {% endif %}
-                <p class="cta-note">This opens Google Photos in one secure window so you can choose the exact frames for the magazine.</p>
+<section class="cta-section">
+    {% if google_configured %}
+    <button id="google-start" class="btn btn-primary">Connect Google Photos</button>
+    {% else %}
+    <button class="btn btn-primary" disabled>Google Photos unavailable</button>
+    {% endif %}
+    <p class="cta-help">Opens a secure Google window to pick your photos.</p>
+
+    <button type="button" id="google-reset" class="btn btn-ghost">Start over</button>
+
+    <div class="status-bar" id="google-status-panel">
+        <div class="status-row">
+            <span class="status-label">Status</span>
+            <span class="status-value" id="google-status">Ready to connect</span>
+        </div>
+        <p class="status-detail" id="google-detail">Choose your photos in Google Photos. Generation unlocks when the selection is complete.</p>
+        <div class="status-metrics">
+            <div class="metric">
+                <span class="metric-num" id="selected-total">0</span>
+                <span class="metric-label">Selected</span>
             </div>
-
-            <div class="hero-actions">
-                <button type="button" id="google-reset" class="btn btn-secondary btn-quiet">Start over</button>
+            <div class="metric">
+                <span class="metric-num" id="estimated-pages">0</span>
+                <span class="metric-label">Pages</span>
             </div>
-
-            <div class="hero-note">
-                <span>One Google window opens. Select the keepers there. Return here to generate.</span>
-            </div>
-
-            <div class="status-ribbon" id="google-status-panel">
-                <div class="ribbon-item">
-                    <span class="ribbon-label">Status</span>
-                    <strong id="google-status">Ready to connect</strong>
-                    <p id="google-detail">Choose your photos in Google Photos. When the selection is complete, generation unlocks automatically.</p>
-                </div>
-                <div class="ribbon-item ribbon-metric">
-                    <span class="ribbon-label">Selected</span>
-                    <strong id="selected-total">0</strong>
-                </div>
-                <div class="ribbon-item ribbon-metric">
-                    <span class="ribbon-label">Estimated pages</span>
-                    <strong id="estimated-pages">0</strong>
-                </div>
-                <div class="ribbon-item ribbon-metric">
-                    <span class="ribbon-label">Flow</span>
-                    <strong id="flow-state">Waiting</strong>
-                </div>
+            <div class="metric">
+                <span class="metric-num" id="flow-state">Waiting</span>
+                <span class="metric-label">Flow</span>
             </div>
         </div>
+    </div>
+</section>
 
-        <div class="hero-visual">
-            <div class="spread spread-left">
-                <div class="spread-image spread-image-tall"></div>
-                <div class="spread-caption">
-                    <span class="spread-kicker">Opening spread</span>
-                    <strong>Clean typography. Quiet pacing. Print-led composition.</strong>
-                </div>
-            </div>
-            <div class="spread spread-center">
-                <div class="spread-header">
-                    <span>Magazine</span>
-                    <span>Issue one</span>
-                </div>
-                <div class="spread-collage">
-                    <div class="collage-block collage-wide"></div>
-                    <div class="collage-column">
-                        <div class="collage-block"></div>
-                        <div class="collage-block"></div>
-                    </div>
-                </div>
-                <div class="spread-footer">Google Photos in. Print-ready PDF out.</div>
-            </div>
-            <div class="spread spread-right">
-                <div class="quote-card">
-                    <span class="spread-kicker">What Magazine does</span>
-                    <p>It takes your selected photos and turns them into a paced, editorial PDF with automatic page count and print-first layout.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+<section class="generate-panel" id="generate-panel" hidden>
+    <h2 class="generate-heading">Add the cover line.</h2>
+    <p class="generate-sub">Strong title, simple subtitle. Less copy reads better in print.</p>
 
-    <section class="value-strip">
-        <article class="value-card">
-            <span class="value-index">01</span>
-            <h2>You choose the photos once.</h2>
-            <p>The only curation step happens in Google Photos, where your library already lives.</p>
-        </article>
-        <article class="value-card">
-            <span class="value-index">02</span>
-            <h2>Magazine handles the pacing.</h2>
-            <p>Page count is automatic and the layout is built for a premium editorial read, not a scrapbook.</p>
-        </article>
-        <article class="value-card">
-            <span class="value-index">03</span>
-            <h2>You leave with a PDF.</h2>
-            <p>Add a title, optional subtitle, and one opening line. Everything else stays out of the way.</p>
-        </article>
-    </section>
+    <form action="{{ url_for('generate') }}" method="POST" id="generate-form">
+        <input type="hidden" name="google_token" id="google-token-input">
+        <input type="hidden" name="google_session_id" id="google-session-input">
+        <input type="hidden" name="pages" value="auto">
+        <input type="hidden" name="style" value="editorial_luxury">
+        <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
+        <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
+        <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
+        <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
+        <input type="hidden" name="run_preflight" value="on">
 
-    <section class="generate-stage" id="generate-panel" hidden>
-        <div class="generate-stage-copy">
-            <p class="eyebrow">Final step</p>
-            <h2 class="stage-heading">Your selection is ready. Add the cover line and generate the issue.</h2>
-            <p class="stage-description">Keep it minimal. Strong names and a simple opening line read better than too much copy.</p>
-        </div>
-
-        <form action="{{ url_for('generate') }}" method="POST" class="generate-form" id="generate-form">
-            <input type="hidden" name="google_token" id="google-token-input">
-            <input type="hidden" name="google_session_id" id="google-session-input">
-            <input type="hidden" name="pages" value="auto">
-            <input type="hidden" name="style" value="editorial_luxury">
-            <input type="hidden" name="min_pages" value="{{ story_config.pagination.min_pages }}">
-            <input type="hidden" name="max_pages" value="{{ story_config.pagination.max_pages }}">
-            <input type="hidden" name="density" value="{{ story_config.pagination.density }}">
-            <input type="hidden" name="page_step" value="{{ story_config.pagination.page_step }}">
-            <input type="hidden" name="run_preflight" value="on">
-
-            <div class="form-grid">
-                <label class="field-group field-emphasis" for="title">
-                    <span>Cover title</span>
-                    <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
-                </label>
-
-                <label class="field-group" for="subtitle">
-                    <span>Subtitle</span>
-                    <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}" placeholder="Rome, 2026">
-                </label>
-            </div>
-
-            <label class="field-group" for="dedication">
-                <span>Opening line</span>
-                <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
+        <div class="form-row">
+            <label class="field field-title" for="title">
+                <span>Cover title</span>
+                <input type="text" id="title" name="title" value="{{ story_config.title }}" placeholder="Patricia & Robert" required>
             </label>
+            <label class="field" for="subtitle">
+                <span>Subtitle</span>
+                <input type="text" id="subtitle" name="subtitle" value="{{ story_config.subtitle }}" placeholder="Rome, 2026">
+            </label>
+        </div>
 
-            <div class="generate-actions">
-                <button type="submit" class="btn btn-primary" id="generate-button">Generate Magazine PDF</button>
-                <p class="generate-note">The PDF downloads directly once generation finishes.</p>
-            </div>
-        </form>
-    </section>
+        <label class="field" for="dedication">
+            <span>Opening line</span>
+            <textarea id="dedication" name="dedication" placeholder="A quiet line for the opening page.">{{ story_config.dedication }}</textarea>
+        </label>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-submit" id="generate-button">Generate Magazine PDF</button>
+            <p class="form-note">PDF downloads when generation finishes.</p>
+        </div>
+    </form>
 </section>
 {% endblock %}
 
@@ -158,18 +96,12 @@
     let pollTimer = null;
 
     function loadSession() {
-        try {
-            return JSON.parse(localStorage.getItem(storageKey) || 'null');
-        } catch {
-            return null;
-        }
+        try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); }
+        catch { return null; }
     }
 
     function saveSession(session) {
-        if (!session) {
-            localStorage.removeItem(storageKey);
-            return;
-        }
+        if (!session) { localStorage.removeItem(storageKey); return; }
         localStorage.setItem(storageKey, JSON.stringify(session));
     }
 
@@ -184,15 +116,13 @@
         });
         const res = await fetch(`/api/layout/estimate?${params.toString()}`);
         const data = await res.json();
-        if (data.success) {
-            estimatedPagesEl.textContent = data.estimated_pages;
-        }
+        if (data.success) estimatedPagesEl.textContent = data.estimated_pages;
     }
 
     function renderSession(session) {
         if (!session) {
             googleStatus.textContent = 'Ready to connect';
-            googleDetail.textContent = 'Choose your photos in Google Photos. When the selection is complete, generation unlocks automatically.';
+            googleDetail.textContent = 'Choose your photos in Google Photos. Generation unlocks when the selection is complete.';
             flowStateEl.textContent = 'Waiting';
             selectedTotalEl.textContent = '0';
             estimatedPagesEl.textContent = '0';
@@ -201,7 +131,6 @@
             if (sessionInput) sessionInput.value = '';
             return;
         }
-
         googleStatus.textContent = session.message || 'Working';
         googleDetail.textContent = session.detail || '';
         flowStateEl.textContent = session.status || 'Working';
@@ -214,21 +143,18 @@
 
     async function pollSelectionStatus() {
         const session = loadSession();
-        if (!session?.token || !session?.sessionId) {
-            renderSession(null);
-            return;
-        }
+        if (!session?.token || !session?.sessionId) { renderSession(null); return; }
 
         try {
             const res = await fetch('/api/google/status', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token: session.token, session_id: session.sessionId}),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: session.token, session_id: session.sessionId }),
             });
             const data = await res.json();
             if (!data.success) {
                 session.status = 'error';
-                session.message = data.error || 'Google status could not be read.';
+                session.message = data.error || 'Could not read Google status.';
                 session.detail = 'Start the Google Photos selection again.';
                 saveSession(session);
                 renderSession(session);
@@ -236,30 +162,22 @@
                 pollTimer = null;
                 return;
             }
-
             session.status = data.status;
             session.message = data.message;
             session.detail = data.status === 'ready'
-                ? 'Your selection is ready. Add the cover line and generate the PDF.'
-                : 'Keep the Google Photos window open until you finish the selection there.';
+                ? 'Selection ready. Add the cover line and generate.'
+                : 'Keep the Google Photos window open until you finish selecting.';
             session.selectedTotal = data.selected_total || 0;
             saveSession(session);
             renderSession(session);
-
-            if (data.status === 'ready' && pollTimer) {
-                clearInterval(pollTimer);
-                pollTimer = null;
-            }
+            if (data.status === 'ready' && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         } catch (err) {
             session.status = 'error';
-            session.message = err.message || 'Google status could not be read.';
+            session.message = err.message || 'Could not read Google status.';
             session.detail = 'Start the Google Photos selection again.';
             saveSession(session);
             renderSession(session);
-            if (pollTimer) {
-                clearInterval(pollTimer);
-                pollTimer = null;
-            }
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         }
     }
 
@@ -273,7 +191,7 @@
         if (event.origin !== window.location.origin) return;
         const data = event.data || {};
         if (data.type !== 'magazine-google-picker-ready') return;
-        const session = {
+        saveSession({
             state: data.state || '',
             token: data.token || '',
             sessionId: data.sessionId || '',
@@ -281,37 +199,27 @@
             message: 'Choose the final photos in Google Photos.',
             detail: 'Once you press Done there, generation unlocks automatically.',
             selectedTotal: 0,
-        };
-        saveSession(session);
-        renderSession(session);
+        });
+        renderSession(loadSession());
         startPolling();
     });
 
     if (googleStart) {
         googleStart.addEventListener('click', async () => {
             saveSession(null);
-            googleStatus.textContent = 'Opening Google Photos…';
-            googleDetail.textContent = 'Approve access, then choose the final photos in the Google window.';
-            const res = await fetch('/api/import/google/start', {method: 'POST'});
+            googleStatus.textContent = 'Opening Google Photos\u2026';
+            googleDetail.textContent = 'Approve access, then choose the photos.';
+            const res = await fetch('/api/import/google/start', { method: 'POST' });
             const data = await res.json();
-            if (!data.success) {
-                googleStatus.textContent = data.error || 'Could not start Google Photos.';
-                return;
-            }
+            if (!data.success) { googleStatus.textContent = data.error || 'Could not start Google Photos.'; return; }
             const popup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
-            if (!popup) {
-                googleStatus.textContent = 'Allow pop-ups for this site and try again.';
-                googleDetail.textContent = '';
-            }
+            if (!popup) { googleStatus.textContent = 'Allow pop-ups for this site and try again.'; googleDetail.textContent = ''; }
         });
     }
 
     if (googleReset) {
         googleReset.addEventListener('click', () => {
-            if (pollTimer) {
-                clearInterval(pollTimer);
-                pollTimer = null;
-            }
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
             saveSession(null);
             renderSession(null);
         });
@@ -320,16 +228,14 @@
     if (generateForm && generateButton) {
         generateForm.addEventListener('submit', () => {
             generateButton.disabled = true;
-            generateButton.textContent = 'Generating PDF…';
+            generateButton.textContent = 'Generating PDF\u2026';
         });
     }
 
     const existing = loadSession();
     if (existing) {
         renderSession(existing);
-        if (existing.status !== 'ready' && existing.status !== 'error') {
-            startPolling();
-        }
+        if (existing.status !== 'ready' && existing.status !== 'error') startPolling();
     } else {
         renderSession(null);
     }
