@@ -189,6 +189,48 @@ body::selection {
     margin: 0 auto 14px;
 }
 
+.global-job-banner {
+    max-width: var(--content-width);
+    margin: 0 auto 14px;
+    padding-left: 24px;
+    padding-right: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.global-job-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 14px 16px;
+    flex: 1;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 252, 248, 0.82);
+    box-shadow: var(--shadow-soft);
+}
+
+.global-job-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+#global-job-status {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+#global-job-detail {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
 .message {
     padding: 14px 16px;
     border-radius: var(--radius-md);
@@ -802,6 +844,7 @@ kbd {
 
 @media (max-width: 760px) {
     .masthead-wrap,
+    .global-job-banner,
     .flash-stack,
     .page-wrap,
     .site-footer {
@@ -837,7 +880,8 @@ kbd {
     }
 
     .progress-nav,
-    .masthead-tally {
+    .masthead-tally,
+    .global-job-banner {
         width: 100%;
     }
 
@@ -845,5 +889,9 @@ kbd {
     .btn,
     .chip {
         width: 100%;
+    }
+
+    .global-job-banner {
+        display: grid;
     }
 }

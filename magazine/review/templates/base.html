@@ -52,6 +52,15 @@
         {% endif %}
     {% endwith %}
 
+    <section class="global-job-banner" id="global-job-banner" hidden>
+        <div class="global-job-copy">
+            <span class="global-job-label">Google import</span>
+            <strong id="global-job-status">Waiting for import status...</strong>
+            <span id="global-job-detail"></span>
+        </div>
+        <a href="{{ url_for('review_candidates') }}" class="btn btn-secondary" id="global-job-cta" hidden>Open selection</a>
+    </section>
+
     <main class="page-wrap">
         {% block content %}{% endblock %}
     </main>
@@ -67,6 +76,10 @@
 
     <script>
         window.activeCardId = null;
+        window.googleJobState = {
+            jobId: localStorage.getItem('magazineGoogleJobId') || null,
+            pollTimer: null,
+        };
 
         function togglePhoto(photoId, action) {
             fetch('/api/toggle', {
@@ -145,6 +158,108 @@
             document.getElementById('lightbox').classList.remove('active');
         }
 
+        function setStoredGoogleJob(jobId) {
+            window.googleJobState.jobId = jobId;
+            if (jobId) {
+                localStorage.setItem('magazineGoogleJobId', jobId);
+            } else {
+                localStorage.removeItem('magazineGoogleJobId');
+            }
+        }
+
+        function renderGoogleJobBanner(data) {
+            const banner = document.getElementById('global-job-banner');
+            const status = document.getElementById('global-job-status');
+            const detail = document.getElementById('global-job-detail');
+            const cta = document.getElementById('global-job-cta');
+            if (!banner || !status || !detail || !cta) return;
+
+            if (!data) {
+                banner.hidden = true;
+                cta.hidden = true;
+                return;
+            }
+
+            banner.hidden = false;
+            status.textContent = data.message || data.status || 'Google import in progress';
+            const details = [];
+            if (typeof data.imported !== 'undefined') {
+                details.push(`Imported ${data.imported}`);
+            }
+            if (data.total) {
+                details.push(`Selected ${data.total}`);
+            } else if (data.selected_total) {
+                details.push(`Selected ${data.selected_total}`);
+            }
+            if (data.skipped) {
+                details.push(`${data.skipped} duplicates skipped`);
+            }
+            if (Array.isArray(data.events) && data.events.length) {
+                const last = data.events[data.events.length - 1];
+                if (last?.stage) {
+                    details.push(`Stage ${String(last.stage).replaceAll('_', ' ')}`);
+                }
+            }
+            detail.textContent = details.join(' · ');
+            cta.hidden = data.status !== 'done';
+        }
+
+        async function pollStoredGoogleJob(force = false) {
+            const jobId = window.googleJobState.jobId;
+            if (!jobId) {
+                renderGoogleJobBanner(null);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/import/jobs/${jobId}`);
+                const data = await res.json();
+                if (!data.success) {
+                    renderGoogleJobBanner({status: 'error', message: data.error || 'Google import could not be found.'});
+                    setStoredGoogleJob(null);
+                    return;
+                }
+
+                renderGoogleJobBanner(data);
+                if (typeof updateCounts === 'function') {
+                    updateCounts();
+                }
+
+                if (data.status === 'done' || data.status === 'error') {
+                    if (data.status === 'done') {
+                        setTimeout(() => setStoredGoogleJob(null), 120000);
+                    } else {
+                        setStoredGoogleJob(null);
+                    }
+                    if (window.googleJobState.pollTimer && !force) {
+                        clearInterval(window.googleJobState.pollTimer);
+                        window.googleJobState.pollTimer = null;
+                    }
+                }
+            } catch (err) {
+                renderGoogleJobBanner({status: 'error', message: err.message || 'Failed to read import job status.'});
+            }
+        }
+
+        function ensureGoogleJobPolling() {
+            if (!window.googleJobState.jobId || window.googleJobState.pollTimer) return;
+            pollStoredGoogleJob(true);
+            window.googleJobState.pollTimer = setInterval(() => pollStoredGoogleJob(), 2500);
+        }
+
+        window.addEventListener('storage', event => {
+            if (event.key === 'magazineGoogleJobId') {
+                window.googleJobState.jobId = event.newValue || null;
+                if (!window.googleJobState.jobId && window.googleJobState.pollTimer) {
+                    clearInterval(window.googleJobState.pollTimer);
+                    window.googleJobState.pollTimer = null;
+                    renderGoogleJobBanner(null);
+                    return;
+                }
+                ensureGoogleJobPolling();
+            }
+        });
+
         document.addEventListener('click', event => {
             const card = event.target.closest('.photo-card');
             if (card) {
@@ -169,6 +284,8 @@
                 toggleHero(window.activeCardId, next, caption);
             }
         });
+
+        ensureGoogleJobPolling();
     </script>
 
     {% block scripts %}{% endblock %}

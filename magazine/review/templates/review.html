@@ -25,8 +25,7 @@
         <div class="control-panel">
             <p class="control-label">Library</p>
             <div class="view-switch vertical-switch">
-                <a class="chip {{ 'active' if page_type == 'candidates' else '' }}" href="{{ url_for('review_candidates') }}">Main review</a>
-                <a class="chip {{ 'active' if page_type == 'others' else '' }}" href="{{ url_for('review_others') }}">Other photos</a>
+                <a class="chip active" href="{{ url_for('review_candidates') }}">All imported photos</a>
             </div>
         </div>
 

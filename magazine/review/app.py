@@ -288,6 +288,7 @@ def _advance_google_job(job_id: str) -> dict | None:
     _record_job_event(job_id, "processing", "Starting import batch", cursor=cursor, batch_size=len(batch))
     try:
         paths = picker.download_all(batch)
+        _record_job_event(job_id, "downloaded", "Downloaded Google batch", downloaded=len(paths), cursor=cursor)
         result = import_existing_paths(paths, source_prefix="google")
         for path in paths:
             try:
@@ -321,6 +322,7 @@ def _advance_google_job(job_id: str) -> dict | None:
             selected_total=len(items),
             imported=imported,
             skipped=skipped,
+            manifest_total=len(load_photos_manifest()),
         )
     except Exception as exc:
         _set_job(job_id, status="error", message=str(exc))
@@ -364,14 +366,13 @@ def create_app() -> Flask:
     @app.route("/review/candidates")
     def review_candidates():
         photos = get_photos_with_state()
-        candidates = [p for p in photos if p["face_count"] in (TARGET_FACE_COUNT, -1)]
         filter_key = request.args.get("filter", "all")
-        candidates = _apply_filter(candidates, filter_key)
+        visible = _apply_filter(photos, filter_key)
         return render_template(
             "review.html",
-            photos=candidates,
+            photos=visible,
             counts=get_counts(),
-            page_type="candidates",
+            page_type="all",
             active_page="review",
             title="Review Photos",
             active_filter=filter_key,
@@ -379,19 +380,7 @@ def create_app() -> Flask:
 
     @app.route("/review/others")
     def review_others():
-        photos = get_photos_with_state()
-        others = [p for p in photos if p["face_count"] not in (TARGET_FACE_COUNT, -1)]
-        filter_key = request.args.get("filter", "all")
-        others = _apply_filter(others, filter_key)
-        return render_template(
-            "review.html",
-            photos=others,
-            counts=get_counts(),
-            page_type="others",
-            active_page="others",
-            title="Other Photos",
-            active_filter=filter_key,
-        )
+        return redirect(url_for("review_candidates"))
 
     @app.route("/summary")
     def summary():
@@ -544,10 +533,7 @@ def create_app() -> Flask:
         photos = get_photos_with_state()
         review_state = load_review_state()
 
-        if page == "candidates":
-            target_ids = [p["id"] for p in photos if p["face_count"] in (TARGET_FACE_COUNT, -1)]
-        else:
-            target_ids = [p["id"] for p in photos if p["face_count"] not in (TARGET_FACE_COUNT, -1)]
+        target_ids = [p["id"] for p in photos]
 
         new_status = "approved" if action == "approve_all" else "rejected"
         for pid in target_ids:

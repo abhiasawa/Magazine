@@ -104,38 +104,11 @@
         });
     }
 
-    let googleJobId = null;
-    let googlePollInterval = null;
-
-    async function pollGoogleJob() {
-        if (!googleJobId) return;
-        const res = await fetch(`/api/import/jobs/${googleJobId}`);
-        const data = await res.json();
-        if (!data.success) {
-            googleResult.textContent = data.error || 'Google import could not be found.';
-            clearInterval(googlePollInterval);
-            return;
-        }
-
-        const details = [data.message || data.status];
-        if (data.imported !== undefined) {
-            details.push(`Imported ${data.imported} photos`);
-            if (data.skipped) {
-                details.push(`${data.skipped} duplicates skipped`);
-            }
-        }
-        if (Array.isArray(data.events) && data.events.length) {
-            const last = data.events[data.events.length - 1];
-            if (last && last.stage) {
-                details.push(`Stage ${last.stage.replaceAll('_', ' ')}`);
-            }
-        }
-        googleResult.textContent = details.join(' · ');
-
-        if (data.status === 'done' || data.status === 'error') {
-            clearInterval(googlePollInterval);
-            updateCounts();
-        }
+    function syncGoogleResultFromBanner() {
+        const status = document.getElementById('global-job-status')?.textContent || '';
+        const detail = document.getElementById('global-job-detail')?.textContent || '';
+        if (!status && !detail) return;
+        googleResult.textContent = [status, detail].filter(Boolean).join(' · ');
     }
 
     if (googleStart) {
@@ -147,15 +120,22 @@
                 googleResult.textContent = data.error;
                 return;
             }
-            googleJobId = data.job_id;
+            setStoredGoogleJob(data.job_id);
             const popup = window.open(data.auth_url, '_blank', 'width=980,height=760');
             if (!popup) {
                 googleResult.textContent = 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
                 return;
             }
             googleResult.textContent = 'Waiting for Google approval...';
-            googlePollInterval = setInterval(pollGoogleJob, 2500);
+            ensureGoogleJobPolling();
         });
     }
+
+    if (window.googleJobState?.jobId) {
+        syncGoogleResultFromBanner();
+        ensureGoogleJobPolling();
+    }
+
+    setInterval(syncGoogleResultFromBanner, 1000);
 </script>
 {% endblock %}
