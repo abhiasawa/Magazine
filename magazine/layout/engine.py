@@ -261,15 +261,19 @@ def build_layout(
     body_pages = max(0, target_pages - 3)
 
     template_cycle = [
+        "full_bleed",
         "cinematic",
         "editorial",
         "two_photo",
-        "three_photo",
         "mosaic",
+        "three_photo",
+        "editorial",
         "collage2",
-        "collage3",
-        "collage4",
         "full_bleed",
+        "two_photo",
+        "cinematic",
+        "collage4",
+        "editorial",
     ]
 
     photo_requirements = {

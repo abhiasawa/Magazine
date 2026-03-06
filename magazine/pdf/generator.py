@@ -147,6 +147,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import Color, HexColor
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
 
     W = 297 * mm
     H = 210 * mm
@@ -161,6 +163,29 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     gold = HexColor("#c7aa73")
     smoke = HexColor("#efebe4")
     white = Color(1, 1, 1)
+
+    display_font = "Times-BoldItalic"
+    serif_font = "Times-Roman"
+    sans_font = "Helvetica"
+
+    font_defs = [
+        ("MaisonDisplay", ASSETS_DIR / "fonts" / "CormorantGaramond-BoldItalic.ttf"),
+        ("MaisonSerif", ASSETS_DIR / "fonts" / "CormorantGaramond-Medium.ttf"),
+        ("MaisonSans", ASSETS_DIR / "fonts" / "Manrope-Medium.ttf"),
+    ]
+    for font_name, font_path in font_defs:
+        if font_path.exists():
+            try:
+                pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+            except Exception:
+                continue
+
+    if (ASSETS_DIR / "fonts" / "CormorantGaramond-BoldItalic.ttf").exists():
+        display_font = "MaisonDisplay"
+    if (ASSETS_DIR / "fonts" / "CormorantGaramond-Medium.ttf").exists():
+        serif_font = "MaisonSerif"
+    if (ASSETS_DIR / "fonts" / "Manrope-Medium.ttf").exists():
+        sans_font = "MaisonSans"
 
     c = canvas.Canvas(str(output_path), pagesize=(W, H))
 
@@ -199,21 +224,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             inner_w = max(1, w - pad * 2)
             inner_h = max(1, h - pad * 2)
 
-            def _draw_cover_layer(alpha=0.16):
-                cover_scale = max(inner_w / iw, inner_h / ih)
-                cover_w = iw * cover_scale
-                cover_h = ih * cover_scale
-                cover_x = inner_x + (inner_w - cover_w) / 2
-                cover_y = inner_y + (inner_h - cover_h) / 2
-                c.saveState()
-                p = c.beginPath()
-                p.rect(inner_x, inner_y, inner_w, inner_h)
-                c.clipPath(p, stroke=0, fill=0)
-                c.drawImage(str(path), cover_x, cover_y, cover_w, cover_h, preserveAspectRatio=False)
-                c.setFillColor(Color(smoke.red, smoke.green, smoke.blue, alpha=alpha))
-                c.rect(inner_x, inner_y, inner_w, inner_h, fill=1, stroke=0)
-                c.restoreState()
-
             contain_scale = min(inner_w / iw, inner_h / ih)
             scale = contain_scale
             image_ratio = iw / ih
@@ -238,9 +248,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                     if allowed_scale > contain_scale:
                         zoom_strength = min(1.0, (gap_ratio - 0.12) / 0.26)
                         scale = contain_scale + ((allowed_scale - contain_scale) * zoom_strength)
-
-                if gap_ratio > 0.2 and ratio_delta >= 0.2:
-                    _draw_cover_layer(alpha=0.22)
 
             draw_w = iw * scale
             draw_h = ih * scale
@@ -294,6 +301,94 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             crop_tolerance=crop_tolerance,
             adaptive_zoom=True,
         )
+
+    def _draw_bleed_photo(photo, x, y, w, h, crop_tolerance=0.18, bg=None):
+        _draw_image_contain(
+            photo,
+            x,
+            y,
+            w,
+            h,
+            pad=0,
+            bg=bg,
+            crop_tolerance=crop_tolerance,
+            adaptive_zoom=True,
+        )
+
+    def _draw_gutter(x, y, w, h, fill=None):
+        c.setFillColor(fill or ivory)
+        c.rect(x, y, w, h, fill=1, stroke=0)
+
+    def _draw_polygon_photo(photo, points, crop_tolerance=0.18, bg=None):
+        path = _photo_path(photo)
+        if not path:
+            return
+        xs = [pt[0] for pt in points]
+        ys = [pt[1] for pt in points]
+        x = min(xs)
+        y = min(ys)
+        w = max(xs) - x
+        h = max(ys) - y
+        if bg:
+            c.setFillColor(bg)
+            c.rect(x, y, w, h, fill=1, stroke=0)
+        c.saveState()
+        p = c.beginPath()
+        first_x, first_y = points[0]
+        p.moveTo(first_x, first_y)
+        for px, py in points[1:]:
+            p.lineTo(px, py)
+        p.close()
+        c.clipPath(p, stroke=0, fill=0)
+        _draw_bleed_photo(photo, x, y, w, h, crop_tolerance=crop_tolerance, bg=bg)
+        c.restoreState()
+
+    def _draw_shadowed_frame(photo, x, y, w, h, matte=3 * mm, shadow=3 * mm, panel=ivory, crop_tolerance=0.15):
+        c.setFillColor(Color(0, 0, 0, alpha=0.16))
+        c.roundRect(x + shadow, y - shadow, w, h, 2 * mm, fill=1, stroke=0)
+        c.setFillColor(panel)
+        c.roundRect(x, y, w, h, 1.5 * mm, fill=1, stroke=0)
+        c.setStrokeColor(Color(0, 0, 0, alpha=0.06))
+        c.setLineWidth(0.5)
+        c.roundRect(x, y, w, h, 1.5 * mm, fill=0, stroke=1)
+        _draw_image_contain(
+            photo,
+            x + matte,
+            y + matte,
+            w - 2 * matte,
+            h - 2 * matte,
+            bg=smoke,
+            crop_tolerance=crop_tolerance,
+            adaptive_zoom=True,
+        )
+
+    def _draw_split_separator(x, y, w, h, fill=ivory):
+        c.setFillColor(fill)
+        c.saveState()
+        p = c.beginPath()
+        p.moveTo(x, y)
+        p.lineTo(x + w * 0.72, y)
+        p.lineTo(x + w, y + h * 0.5)
+        p.lineTo(x + w * 0.72, y + h)
+        p.lineTo(x, y + h)
+        p.lineTo(x + w * 0.28, y + h * 0.5)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+        c.restoreState()
+
+    def _draw_accent_rule(x, y, length, horizontal=True, alpha=0.28):
+        c.setStrokeColor(Color(gold.red, gold.green, gold.blue, alpha=alpha))
+        c.setLineWidth(0.9)
+        if horizontal:
+            c.line(x, y, x + length, y)
+        else:
+            c.line(x, y, x, y + length)
+
+    def _draw_corner_bracket(x, y, size=12 * mm, color=None):
+        c.setStrokeColor(color or Color(1, 1, 1, alpha=0.18))
+        c.setLineWidth(0.7)
+        c.line(x, y, x + size, y)
+        c.line(x, y, x, y - size)
 
     def _draw_text_block(text, x, y, font, size, color, max_width=None, align="left"):
         """Draw wrapped text and return the final y position."""
@@ -369,19 +464,19 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.circle(W * 0.69, H * 0.31, 6 * mm, fill=1, stroke=0)
 
         c.setFillColor(Color(1, 1, 1, alpha=0.42))
-        c.setFont("Helvetica", 8)
+        c.setFont(sans_font, 8)
         c.drawString(18 * mm, H - 16 * mm, "MAISON FOLIO")
 
         c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.82))
-        c.setFont("Helvetica-Bold", 8.5)
+        c.setFont(sans_font, 8.5)
         c.drawString(26 * mm, H - 42 * mm, "PRIVATE EDITION")
 
         c.setFillColor(ivory)
-        c.setFont("Times-BoldItalic", 56)
+        c.setFont(display_font, 56)
         c.drawString(24 * mm, H * 0.56, "Memories")
 
         c.setFillColor(Color(1, 1, 1, alpha=0.34))
-        c.setFont("Times-Italic", 24)
+        c.setFont(serif_font, 24)
         c.drawString(28 * mm, H * 0.43, "worth keeping")
 
         _draw_divider(26 * mm, 76 * mm, H * 0.37, Color(gold.red, gold.green, gold.blue, alpha=0.35))
@@ -392,13 +487,16 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.line(82 * mm, H * 0.62, 82 * mm, H * 0.48)
 
         c.setFillColor(Color(1, 1, 1, alpha=0.24))
-        c.setFont("Times-Italic", 26)
+        c.setFont(display_font, 26)
         c.drawRightString(W - 22 * mm, 24 * mm, "Vol. I")
 
     def _back_cover(page):
-        _editorial_bg(light=False)
+        _fill_page(obsidian)
         if page.photos:
-            _draw_panel_photo(page.photos[0], 52 * mm, 24 * mm, W - 104 * mm, H - 48 * mm, matte=4 * mm, panel=ivory)
+            _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.2, bg=coal)
+            c.setFillColor(Color(0, 0, 0, alpha=0.24))
+            c.rect(W - 30 * mm, 0, 30 * mm, H, fill=1, stroke=0)
+            _draw_corner_bracket(W - 18 * mm, H - 18 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.16))
 
     def _dedication(page):
         _editorial_bg(light=True)
@@ -411,74 +509,203 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     def _full_bleed(page):
         _editorial_bg(light=False)
         if page.photos:
-            _draw_panel_photo(page.photos[0], 18 * mm, 18 * mm, W - 36 * mm, H - 36 * mm, matte=4 * mm, panel=ivory)
+            _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.22, bg=coal)
+            c.setFillColor(Color(0, 0, 0, alpha=0.18))
+            c.rect(0, 0, 18 * mm, H, fill=1, stroke=0)
+            _draw_accent_rule(12 * mm, H - 18 * mm, 42 * mm, horizontal=False, alpha=0.34)
+            _draw_accent_rule(W - 52 * mm, 16 * mm, 34 * mm, horizontal=True, alpha=0.34)
+            _draw_corner_bracket(W - 18 * mm, 18 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.15))
+
+    def _cinematic(page):
+        _fill_page(obsidian)
+        if page.photos:
+            _draw_polygon_photo(
+                page.photos[0],
+                [
+                    (0, H * 0.08),
+                    (W * 0.78, H * 0.08),
+                    (W, H * 0.36),
+                    (W, H),
+                    (W * 0.18, H),
+                    (0, H * 0.72),
+                ],
+                crop_tolerance=0.2,
+                bg=coal,
+            )
+            _draw_split_separator(W * 0.74, H * 0.16, 18 * mm, 48 * mm, fill=ivory)
+            _draw_accent_rule(18 * mm, 16 * mm, 32 * mm, horizontal=True, alpha=0.28)
+            _draw_accent_rule(W - 22 * mm, H - 52 * mm, 24 * mm, horizontal=False, alpha=0.28)
 
     def _two_photos(page):
-        _editorial_bg(light=True)
-        gap = 8 * mm
-        iw = (W - (2 * MARGIN) - gap) / 2
-        ih = H - 44 * mm
-        for i, photo in enumerate(page.photos[:2]):
-            x = MARGIN + i * (iw + gap)
-            y = 22 * mm + (4 * mm if i % 2 else 0)
-            _draw_panel_photo(photo, x, y, iw, ih - (4 * mm if i % 2 else 0), matte=4 * mm, panel=ivory)
+        _fill_page(obsidian)
+        gap = 4 * mm
+        left_w = W * 0.7
+        right_w = W - left_w - gap
+        if len(page.photos) >= 1:
+            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=coal)
+        if len(page.photos) >= 2:
+            _draw_shadowed_frame(
+                page.photos[1],
+                left_w - 12 * mm,
+                16 * mm,
+                right_w + 4 * mm,
+                H - 32 * mm,
+                matte=2.5 * mm,
+                shadow=4 * mm,
+                panel=ivory,
+                crop_tolerance=0.14,
+            )
+        _draw_accent_rule(left_w + gap + 12 * mm, H - 20 * mm, 22 * mm, horizontal=True, alpha=0.34)
+        _draw_corner_bracket(16 * mm, H - 16 * mm, size=9 * mm, color=Color(1, 1, 1, alpha=0.14))
 
     def _three_photos(page):
-        _editorial_bg(light=True)
-        gap = 8 * mm
-        left_w = W * 0.56
-        right_w = W - left_w - 2 * MARGIN - gap
-        top_h = H - 44 * mm
-        bot_h = (top_h - gap) / 2
+        _fill_page(ivory)
+        gap = 4 * mm
+        left_w = W * 0.6
+        right_w = W - left_w - gap
+        top_h = H * 0.62
+        bot_h = H - top_h - gap
         if len(page.photos) >= 1:
-            _draw_panel_photo(page.photos[0], MARGIN, 22 * mm, left_w - MARGIN, top_h, matte=4 * mm, panel=ivory)
+            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=smoke)
         for i, photo in enumerate(page.photos[1:3]):
             x = left_w + gap
-            y = 22 * mm + (1 - i) * (bot_h + gap)
-            _draw_panel_photo(photo, x, y, right_w, bot_h, matte=4 * mm, panel=parchment)
+            y = H - (i + 1) * ((H - gap) / 2)
+            _draw_bleed_photo(photo, x, y, right_w, (H - gap) / 2, crop_tolerance=0.16, bg=smoke)
+        if len(page.photos) >= 1:
+            if len(page.photos) >= 2:
+                _draw_shadowed_frame(
+                    page.photos[1],
+                    10 * mm,
+                    8 * mm,
+                    left_w * 0.38,
+                    bot_h - 12 * mm,
+                    matte=2.2 * mm,
+                    shadow=2.4 * mm,
+                    panel=ivory,
+                    crop_tolerance=0.1,
+                )
+            if len(page.photos) >= 3:
+                _draw_polygon_photo(
+                    page.photos[2],
+                    [
+                        (left_w * 0.42 + 8 * mm, 0),
+                        (left_w - 6 * mm, 0),
+                        (left_w - 18 * mm, bot_h),
+                        (left_w * 0.42 + 18 * mm, bot_h),
+                    ],
+                    crop_tolerance=0.12,
+                    bg=smoke,
+                )
+        _draw_gutter(left_w, H - top_h, gap, top_h, fill=ivory)
+        _draw_gutter(left_w + gap, H / 2 - gap / 2, right_w, gap, fill=ivory)
+        _draw_accent_rule(W - 46 * mm, H - 18 * mm, 22 * mm, horizontal=True, alpha=0.24)
 
     def _four_photos(page):
-        _editorial_bg(light=True)
-        gap = 8 * mm
-        iw = (W - (2 * MARGIN) - gap) / 2
-        ih = (H - 44 * mm - gap) / 2
+        _fill_page(parchment)
+        gap = 4 * mm
+        left_w = W * 0.54
+        right_w = W - left_w - gap
+        top_h = H * 0.54
+        bot_h = H - top_h - gap
         positions = [
-            (MARGIN, 22 * mm + ih + gap),
-            (MARGIN + iw + gap, 22 * mm + ih + gap),
-            (MARGIN, 22 * mm),
-            (MARGIN + iw + gap, 22 * mm),
+            (0, H - top_h),
+            (left_w + gap, H - top_h),
+            (left_w + gap, 0),
+            (left_w + gap + (right_w - gap) / 2, 0),
         ]
-        for i, photo in enumerate(page.photos[:4]):
+        sizes = [
+            (left_w, top_h),
+            (right_w, top_h),
+            ((right_w - gap) / 2, bot_h),
+            ((right_w - gap) / 2, bot_h),
+        ]
+        if len(page.photos) >= 1:
+            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=smoke)
+        for i, photo in enumerate(page.photos[1:4], start=1):
             x, y = positions[i]
-            _draw_panel_photo(photo, x, y, iw, ih, matte=4 * mm, panel=ivory if i % 2 == 0 else parchment)
+            w_slot, h_slot = sizes[i]
+            if i == 1:
+                _draw_shadowed_frame(photo, x + 6 * mm, y + 8 * mm, w_slot - 12 * mm, h_slot - 14 * mm, matte=2.5 * mm, panel=ivory, crop_tolerance=0.12)
+            else:
+                _draw_bleed_photo(photo, x, y, w_slot, h_slot, crop_tolerance=0.14, bg=smoke)
+        _draw_gutter(left_w, 0, gap, H, fill=parchment)
+        _draw_gutter(left_w + gap, bot_h, right_w, gap, fill=parchment)
+        _draw_gutter(left_w + gap + (right_w - gap) / 2, 0, gap, bot_h, fill=parchment)
+        _draw_corner_bracket(14 * mm, H - 14 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.18))
 
     def _editorial(page):
         _editorial_bg(light=False)
-        img_w = W * 0.58
+        img_w = W * 0.68
         if page.photos:
-            _draw_panel_photo(page.photos[0], 18 * mm, 18 * mm, img_w, H - 36 * mm, matte=4 * mm, panel=ivory)
-        c.setFillColor(Color(1, 1, 1, alpha=0.07))
-        c.rect(img_w + 28 * mm, 26 * mm, W - img_w - 50 * mm, H - 52 * mm, fill=1, stroke=0)
+            _draw_polygon_photo(
+                page.photos[0],
+                [
+                    (0, 0),
+                    (img_w, 0),
+                    (img_w - 18 * mm, H),
+                    (0, H),
+                ],
+                crop_tolerance=0.2,
+                bg=coal,
+            )
+        c.setFillColor(Color(1, 1, 1, alpha=0.06))
+        c.rect(img_w + 6 * mm, 0, W - img_w - 6 * mm, H, fill=1, stroke=0)
         c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.22))
-        c.rect(img_w + 28 * mm, 26 * mm, 2 * mm, H - 52 * mm, fill=1, stroke=0)
+        c.rect(img_w + 6 * mm, 0, 2 * mm, H, fill=1, stroke=0)
+        c.setStrokeColor(Color(1, 1, 1, alpha=0.12))
+        c.setLineWidth(0.6)
+        c.rect(img_w + 18 * mm, 24 * mm, W - img_w - 36 * mm, H - 48 * mm, fill=0, stroke=1)
+        _draw_accent_rule(img_w + 22 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24)
+
+    def _mosaic(page):
+        _fill_page(ivory)
+        gap = 4 * mm
+        left_w = W * 0.58
+        right_w = W - left_w - gap
+        top_h = H * 0.6
+        bottom_h = H - top_h - gap
+        if len(page.photos) >= 1:
+            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=smoke)
+        if len(page.photos) >= 2:
+            _draw_bleed_photo(page.photos[1], left_w + gap, H - top_h, right_w, top_h, crop_tolerance=0.18, bg=smoke)
+        if len(page.photos) >= 3:
+            _draw_bleed_photo(page.photos[2], 0, 0, W * 0.4, bottom_h, crop_tolerance=0.12, bg=smoke)
+        if len(page.photos) >= 4:
+            _draw_shadowed_frame(
+                page.photos[3],
+                W * 0.43,
+                8 * mm,
+                W * 0.3,
+                bottom_h - 16 * mm,
+                matte=2.8 * mm,
+                panel=ivory,
+                crop_tolerance=0.12,
+            )
+        _draw_gutter(0, bottom_h, W, gap, fill=ivory)
+        _draw_gutter(left_w, H - top_h, gap, top_h, fill=ivory)
+        _draw_accent_rule(W - 40 * mm, 16 * mm, 22 * mm, horizontal=True, alpha=0.22)
 
     def _simple(page):
         """Fallback for unknown templates: place photos in a grid."""
-        _editorial_bg(light=True)
+        _fill_page(ivory)
         n = len(page.photos)
         if n == 0:
             return
         cols = 2 if n > 1 else 1
         rows = (n + cols - 1) // cols
-        gap = 8 * mm
-        iw = (W - 2 * MARGIN - (cols - 1) * gap) / cols
-        ih = (H - 44 * mm - (rows - 1) * gap) / rows
+        gap = 4 * mm
+        iw = (W - (cols - 1) * gap) / cols
+        ih = (H - (rows - 1) * gap) / rows
         for i, photo in enumerate(page.photos):
             col = i % cols
             row = i // cols
-            x = MARGIN + col * (iw + gap)
-            y = H - 22 * mm - (row + 1) * ih - row * gap
-            _draw_panel_photo(photo, x, y, iw, ih, matte=4 * mm, panel=ivory)
+            x = col * (iw + gap)
+            y = H - (row + 1) * ih - row * gap
+            _draw_bleed_photo(photo, x, y, iw, ih, crop_tolerance=0.16, bg=smoke)
+        for col in range(cols - 1):
+            _draw_gutter((col + 1) * iw + col * gap, 0, gap, H, fill=ivory)
+        for row in range(rows - 1):
+            _draw_gutter(0, H - (row + 1) * ih - (row + 1) * gap, W, gap, fill=ivory)
 
     # ── Dispatch ──
 
@@ -487,7 +714,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         "back_cover": _back_cover,
         "dedication": _dedication,
         "full_bleed": _full_bleed,
-        "cinematic": _full_bleed,
+        "cinematic": _cinematic,
         "photo_quote_overlay": _full_bleed,
         "big_polaroid": _big_polaroid,
         "collage2": _two_photos,
@@ -496,7 +723,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         "three_photo": _three_photos,
         "collage_stack": _three_photos,
         "collage4": _four_photos,
-        "mosaic": _four_photos,
+        "mosaic": _mosaic,
         "editorial": _editorial,
     }
 
