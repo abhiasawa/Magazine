@@ -247,7 +247,36 @@ body::selection {
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
-    margin-top: 22px;
+    margin-top: 12px;
+    align-items: center;
+}
+
+.hero-cta-panel {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    margin-top: 24px;
+    padding: 20px 22px;
+    border: 1px solid rgba(255, 250, 244, 0.1);
+    border-radius: 22px;
+    background: rgba(255, 250, 244, 0.05);
+}
+
+.cta-kicker {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 250, 244, 0.58);
+}
+
+.cta-note {
+    margin: 0;
+    max-width: 48ch;
+    color: rgba(255, 250, 244, 0.74);
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 .hero-note {
@@ -646,6 +675,21 @@ body::selection {
     border-color: rgba(255, 250, 244, 0.16);
 }
 
+.btn-hero {
+    min-height: 64px;
+    padding: 0 34px;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+}
+
+.btn-quiet {
+    min-height: 42px;
+    padding: 0 18px;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    opacity: 0.78;
+}
+
 .generate-stage .btn-secondary {
     color: var(--ink);
     border-color: var(--line-strong);
@@ -735,6 +779,17 @@ body::selection {
     .hero-actions {
         margin-top: 16px;
         gap: 8px;
+    }
+
+    .hero-cta-panel {
+        margin-top: 18px;
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .cta-note {
+        font-size: 12px;
+        line-height: 1.45;
     }
 
     .hero-note {
@@ -868,5 +923,14 @@ body::selection {
         padding: 0 14px;
         font-size: 9px;
         letter-spacing: 0.16em;
+    }
+
+    .btn-hero {
+        min-height: 52px;
+        font-size: 10px;
+    }
+
+    .btn-quiet {
+        min-height: 40px;
     }
 }

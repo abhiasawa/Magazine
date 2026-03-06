@@ -8,13 +8,18 @@
             <h1 class="hero-title">Turn a Google Photos selection into an editorial magazine worth printing.</h1>
             <p class="hero-subtitle">No local upload. No review maze. No setup ritual. Choose the final frames in Google Photos, add a title, and generate the PDF.</p>
 
-            <div class="hero-actions">
+            <div class="hero-cta-panel">
+                <p class="cta-kicker">Step one</p>
                 {% if google_configured %}
-                <button id="google-start" class="btn btn-primary">Start with Google Photos</button>
+                <button id="google-start" class="btn btn-primary btn-hero">Connect Google Photos</button>
                 {% else %}
-                <button class="btn btn-secondary" disabled>Google Photos unavailable</button>
+                <button class="btn btn-secondary btn-hero" disabled>Google Photos unavailable</button>
                 {% endif %}
-                <button type="button" id="google-reset" class="btn btn-secondary">Start over</button>
+                <p class="cta-note">This opens Google Photos in one secure window so you can choose the exact frames for the magazine.</p>
+            </div>
+
+            <div class="hero-actions">
+                <button type="button" id="google-reset" class="btn btn-secondary btn-quiet">Start over</button>
             </div>
 
             <div class="hero-note">
