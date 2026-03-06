@@ -353,35 +353,47 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.setLineWidth(0.5)
         c.rect(14 * mm, 14 * mm, W - 28 * mm, H - 28 * mm, fill=0, stroke=1)
 
+        c.setFillColor(Color(1, 1, 1, alpha=0.04))
+        c.rect(W * 0.58, 26 * mm, 78 * mm, H - 52 * mm, fill=1, stroke=0)
+        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.16))
+        c.rect(W * 0.58, 26 * mm, 2 * mm, H - 52 * mm, fill=1, stroke=0)
+        c.setStrokeColor(Color(1, 1, 1, alpha=0.08))
+        c.setLineWidth(0.4)
+        c.rect(W * 0.62, 34 * mm, 60 * mm, 44 * mm, fill=0, stroke=1)
+        c.rect(W * 0.67, 86 * mm, 42 * mm, 30 * mm, fill=0, stroke=1)
+        c.rect(W * 0.61, H - 66 * mm, 54 * mm, 18 * mm, fill=0, stroke=1)
+
+        c.setFillColor(Color(1, 1, 1, alpha=0.05))
+        c.circle(W * 0.74, H * 0.52, 16 * mm, fill=1, stroke=0)
+        c.circle(W * 0.84, H * 0.44, 8 * mm, fill=1, stroke=0)
+        c.circle(W * 0.69, H * 0.31, 6 * mm, fill=1, stroke=0)
+
         c.setFillColor(Color(1, 1, 1, alpha=0.42))
         c.setFont("Helvetica", 8)
-        c.drawString(18 * mm, H - 16 * mm, "ESTABLISHED 2026")
-        x = 26 * mm
-        y = H - 42 * mm
-        lines = [
-            ("Turn", white),
-            ("memories", ivory),
-            ("into", white),
-            ("something", Color(1, 1, 1, alpha=0.55)),
-            ("you hold.", white),
-        ]
-        for text, color in lines:
-            c.setFillColor(color)
-            c.setFont("Times-BoldItalic", 34 if text != "memories" else 38)
-            c.drawString(x, y, text)
-            y -= 14 * mm
+        c.drawString(18 * mm, H - 16 * mm, "MAISON FOLIO")
 
-        _draw_divider(x, x + 46 * mm, y + 4 * mm, Color(gold.red, gold.green, gold.blue, alpha=0.35))
-        y -= 8 * mm
-        hero_sub = (
-            "Choose moments directly from Google Photos and turn them into "
-            "a print-ready editorial volume."
-        )
-        y = _draw_text_block(hero_sub, x, y, "Helvetica", 10.5, Color(1, 1, 1, alpha=0.72), W * 0.38, "left")
-        if page.title and page.title.strip() and page.title.strip().lower() not in {"magazine", "held", "monograph", "maison folio"}:
-            c.setFont("Helvetica-Bold", 9)
-            c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.82))
-            c.drawRightString(W - 20 * mm, 22 * mm, page.title.upper())
+        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.82))
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(26 * mm, H - 42 * mm, "PRIVATE EDITION")
+
+        c.setFillColor(ivory)
+        c.setFont("Times-BoldItalic", 56)
+        c.drawString(24 * mm, H * 0.56, "Memories")
+
+        c.setFillColor(Color(1, 1, 1, alpha=0.34))
+        c.setFont("Times-Italic", 24)
+        c.drawString(28 * mm, H * 0.43, "worth keeping")
+
+        _draw_divider(26 * mm, 76 * mm, H * 0.37, Color(gold.red, gold.green, gold.blue, alpha=0.35))
+
+        c.setStrokeColor(Color(gold.red, gold.green, gold.blue, alpha=0.24))
+        c.setLineWidth(0.6)
+        c.line(24 * mm, H * 0.62, 24 * mm, H * 0.34)
+        c.line(82 * mm, H * 0.62, 82 * mm, H * 0.48)
+
+        c.setFillColor(Color(1, 1, 1, alpha=0.24))
+        c.setFont("Times-Italic", 26)
+        c.drawRightString(W - 22 * mm, 24 * mm, "Vol. I")
 
     def _back_cover(page):
         _editorial_bg(light=False)

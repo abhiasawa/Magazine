@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from dataclasses import dataclass, field
 
 from magazine.config import PHOTOS_MANIFEST, FACE_RESULTS
@@ -91,6 +92,43 @@ def pick_best_photo(photos: list[dict]) -> dict | None:
     if not photos:
         return None
     return max(photos, key=lambda p: p.get("width", 0) * p.get("height", 0))
+
+
+def _parse_taken_date(photo: dict) -> datetime | None:
+    raw = str(photo.get("date_taken") or "").strip()
+    if not raw:
+        return None
+    for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y:%m:%d", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _format_cover_date_range(photos: list[dict]) -> str:
+    dates = [dt for photo in photos if (dt := _parse_taken_date(photo))]
+    if not dates:
+        return "Assembled from your selected photographs"
+
+    start = min(dates)
+    end = max(dates)
+    if start.year == end.year and start.month == end.month:
+        return start.strftime("%B %Y")
+    if start.year == end.year:
+        return f"{start.strftime('%B')} - {end.strftime('%B %Y')}"
+    return f"{start.strftime('%b %Y')} - {end.strftime('%b %Y')}"
+
+
+def _cover_storyline(photos: list[dict]) -> tuple[str, str]:
+    count = len(photos)
+    if count >= 80:
+        return "An expansive private volume", f"Edited from {count} selected photographs"
+    if count >= 40:
+        return "A private edition of remembered days", f"Edited from {count} selected photographs"
+    if count >= 20:
+        return "A collected volume of moments worth keeping", f"Edited from {count} selected photographs"
+    return "A small private edition of what mattered most", f"Edited from {count} selected photographs"
 
 
 def estimate_page_count(
@@ -203,14 +241,17 @@ def build_layout(
 
     pages_out: list[PageSpec] = []
     page_num = 1
+    cover_line, cover_meta = _cover_storyline(photos)
+    cover_date_range = _format_cover_date_range(photos)
 
     # Fixed opening pages
     pages_out.append(
         PageSpec(
             template="cover",
             photos=[],
-            title=title,
-            subtitle=subtitle,
+            title=cover_line,
+            subtitle=cover_meta,
+            section_title=cover_date_range,
             page_number=page_num,
         )
     )
