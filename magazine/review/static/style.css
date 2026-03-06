@@ -28,6 +28,10 @@
     box-sizing: border-box;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 html {
     scroll-behavior: smooth;
 }
@@ -660,110 +664,122 @@ body::selection {
     }
 
     .hero-copy,
-    .hero-visual,
-    .value-card,
     .generate-stage {
-        padding: 22px;
-    }
-
-    .hero-title {
-        font-size: clamp(42px, 13vw, 62px);
-        max-width: 8.2ch;
-        line-height: 0.93;
-    }
-
-    .hero-subtitle {
-        font-size: 15px;
-        line-height: 1.7;
-        max-width: 34ch;
-    }
-
-    .hero-copy {
-        padding: 28px 22px;
-    }
-
-    .hero-actions {
-        margin-top: 22px;
-        gap: 10px;
-    }
-
-    .hero-note {
-        font-size: 12px;
-        line-height: 1.6;
-    }
-
-    .hero-visual {
-        min-height: 330px;
         padding: 18px;
     }
 
-    .spread-left {
-        left: 10px;
-        top: 38px;
-        width: 34%;
-        padding: 10px;
+    .value-card {
+        padding: 20px 18px;
     }
 
-    .spread-center {
-        left: 21%;
-        top: 20px;
-        width: 56%;
-        padding: 10px;
+    .hero-title {
+        font-size: clamp(28px, 8.5vw, 42px);
+        max-width: 9.2ch;
+        line-height: 0.94;
     }
 
-    .spread-right {
-        right: 8px;
-        bottom: 28px;
-        width: 32%;
-        padding: 10px;
+    .hero-subtitle {
+        font-size: 13px;
+        line-height: 1.55;
+        max-width: 32ch;
     }
 
-    .spread-caption strong,
-    .quote-card p {
-        font-size: 16px;
+    .hero-copy {
+        padding: 18px 16px;
+        border-radius: 24px;
     }
 
-    .spread-image-tall {
-        height: 150px;
+    .hero-actions {
+        margin-top: 16px;
+        gap: 8px;
     }
 
-    .collage-wide {
-        min-height: 178px;
+    .hero-note {
+        margin-top: 12px;
+        font-size: 11px;
+        line-height: 1.45;
     }
 
-    .collage-column .collage-block:first-child {
-        min-height: 82px;
+    .masthead {
+        padding-top: 14px;
+        padding-bottom: 14px;
+        gap: 10px;
     }
 
-    .collage-column .collage-block:last-child {
-        min-height: 82px;
+    .brand-mark,
+    .brand-note,
+    .masthead-kicker,
+    .progress-link,
+    .eyebrow,
+    .ribbon-label,
+    .value-index,
+    .field-group span {
+        font-size: 9px;
+        letter-spacing: 0.18em;
     }
 
-    .quote-card {
-        min-height: 132px;
-        padding: 12px;
+    .masthead-title {
+        font-size: 52px;
     }
 
-    .spread-footer,
-    .spread-kicker,
-    .spread-header span {
-        font-size: 8px;
+    .progress-nav {
+        gap: 6px;
+    }
+
+    .progress-link {
+        min-height: 30px;
+        padding: 0 10px;
+    }
+
+    .landing-shell {
+        gap: 18px;
+    }
+
+    .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .hero-visual,
+    .value-strip {
+        display: none;
     }
 
     .status-ribbon {
-        grid-template-columns: 1fr;
-        margin-top: 24px;
+        grid-template-columns: 1fr 1fr;
+        margin-top: 16px;
+        border-radius: 16px;
     }
 
     .ribbon-item {
         min-height: auto;
-        padding: 16px 18px;
-        border-left: 0;
-        border-top: 1px solid rgba(255, 250, 244, 0.1);
+        padding: 12px 12px;
+        border-left: 1px solid rgba(255, 250, 244, 0.08);
+        border-top: 1px solid rgba(255, 250, 244, 0.08);
     }
 
-    .ribbon-item:first-child {
+    .ribbon-item:nth-child(odd) {
+        border-left: 0;
+    }
+
+    .ribbon-item:nth-child(-n+2) {
         border-top: 0;
+    }
+
+    .ribbon-item strong {
+        margin-top: 6px;
+        font-size: 15px;
+        line-height: 1.2;
+    }
+
+    .ribbon-item p {
+        margin-top: 6px;
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    .ribbon-metric strong {
+        font-size: 34px;
     }
 
     .form-grid,
@@ -774,26 +790,40 @@ body::selection {
         align-items: stretch;
     }
 
-    .value-card h2 {
-        font-size: 34px;
-        max-width: 10ch;
-    }
-
     .generate-stage {
-        gap: 18px;
+        gap: 12px;
+        padding: 18px 16px;
+        border-radius: 24px;
     }
 
     .stage-heading {
-        font-size: clamp(34px, 12vw, 48px);
-        max-width: 8.5ch;
+        font-size: clamp(24px, 7vw, 34px);
+        max-width: 11ch;
     }
 
     .stage-description,
     .generate-note {
-        font-size: 14px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .field-group input,
+    .field-group textarea {
+        min-height: 48px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+    }
+
+    .field-group textarea {
+        min-height: 96px;
     }
 
     .btn {
         width: 100%;
+        min-height: 46px;
+        padding: 0 14px;
+        font-size: 9px;
+        letter-spacing: 0.16em;
     }
 }
