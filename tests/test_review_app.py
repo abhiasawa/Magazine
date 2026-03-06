@@ -1,4 +1,7 @@
-from magazine.review.app import create_app
+from pathlib import Path
+from uuid import uuid4
+
+from magazine.review.app import create_app, _advance_google_job, _set_job
 
 
 def test_review_candidates_shows_all_imported_photos(monkeypatch):
@@ -48,3 +51,45 @@ def test_batch_action_applies_to_all_visible_photos(monkeypatch):
     assert response.status_code == 200
     assert saved["a"]["status"] == "approved"
     assert saved["b"]["status"] == "approved"
+
+
+def test_google_job_selection_and_processing_are_split(monkeypatch):
+    job_id = f"job-selection-split-{uuid4().hex}"
+    items = [
+        {
+            "id": str(i),
+            "mediaFile": {
+                "baseUrl": f"https://example.com/{i}",
+                "mediaFileMetadata": {"width": 1, "height": 1},
+            },
+        }
+        for i in range(4)
+    ]
+
+    _set_job(job_id, status="picker_ready", picker_state={"token": "tok", "session_id": "sid"})
+
+    class FakePicker:
+        def session_status(self):
+            return {"mediaItemsSet": True}
+
+        def get_media_items(self):
+            return items
+
+        def download_all(self, batch):
+            return [Path(f"/tmp/{entry['id']}.jpg") for entry in batch]
+
+    monkeypatch.setattr("magazine.review.app.GooglePhotoPicker.from_saved_state", lambda **_: FakePicker())
+    monkeypatch.setattr(
+        "magazine.review.app.import_existing_paths",
+        lambda paths, source_prefix: {"imported": len(paths), "skipped": 0, "total": len(paths)},
+    )
+    monkeypatch.setattr("magazine.review.app.load_photos_manifest", lambda: [{"id": "x"}])
+
+    first = dict(_advance_google_job(job_id))
+    second = _advance_google_job(job_id)
+
+    assert first["status"] == "syncing"
+    assert first["selected_total"] == 4
+    assert first["batch_cursor"] == 0
+    assert second["batch_cursor"] == 2
+    assert second["status"] == "syncing"

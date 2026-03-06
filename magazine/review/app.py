@@ -36,7 +36,7 @@ from magazine.sources.google_picker import GooglePhotoPicker
 
 _GOOGLE_JOBS: dict[str, dict] = {}
 _GOOGLE_JOBS_LOCK = threading.Lock()
-_JOB_BATCH_SIZE = 10
+_JOB_BATCH_SIZE = 2
 _JOB_DIR = Path(THUMBNAILS_DIR).parent / "import_jobs"
 _JOB_DIR.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ def _advance_google_job(job_id: str) -> dict | None:
                 skipped=job.get("skipped", 0),
             )
             _record_job_event(job_id, "selection_complete", "Google selection completed", selected_total=len(items))
-            job = _get_job(job_id) or {}
+            return _get_job(job_id)
         except Exception as exc:
             _set_job(job_id, status="error", message=str(exc))
             _record_job_event(job_id, "error", "Failed while checking Google session", error=str(exc))
