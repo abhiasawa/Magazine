@@ -198,12 +198,6 @@ def create_app() -> Flask:
     def api_google_connection():
         return jsonify({"success": True, "connected": bool(_saved_google_refresh_token())})
 
-    @app.route("/api/google/disconnect", methods=["POST"])
-    def api_google_disconnect():
-        response = jsonify({"success": True})
-        response.delete_cookie(GOOGLE_REFRESH_COOKIE)
-        return response
-
     @app.route("/api/import/google/session", methods=["POST"])
     def api_import_google_session():
         refresh_token = _saved_google_refresh_token()

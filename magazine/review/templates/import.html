@@ -17,12 +17,6 @@
 
 <section class="cta-section">
     <div class="cta-card">
-        {% if google_connected %}
-        <div class="connection-pill" id="google-connected-pill">
-            <span>Google connected</span>
-            <button type="button" id="google-disconnect" class="pill-action">Disconnect</button>
-        </div>
-        {% endif %}
         <div class="cta-actions">
             {% if google_configured %}
             <button id="google-start" class="btn btn-primary">
@@ -104,8 +98,6 @@
     const tokenInput = document.getElementById('google-token-input');
     const sessionInput = document.getElementById('google-session-input');
     const googleReset = document.getElementById('google-reset');
-    const googleDisconnect = document.getElementById('google-disconnect');
-    const googleConnectedPill = document.getElementById('google-connected-pill');
     const googleStatusPanel = document.getElementById('google-status-panel');
     const generateForm = document.getElementById('generate-form');
     const generateButton = document.getElementById('generate-button');
@@ -456,15 +448,6 @@
         });
     }
 
-    if (googleDisconnect) {
-        googleDisconnect.addEventListener('click', async () => {
-            await fetch('/api/google/disconnect', { method: 'POST' });
-            if (googleConnectedPill) googleConnectedPill.remove();
-            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-            saveSession(null);
-            renderSession(null);
-        });
-    }
 
     if (googleReset) {
         googleReset.addEventListener('click', () => {
