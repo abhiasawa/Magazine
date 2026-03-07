@@ -88,10 +88,19 @@ def _determine_narrative_type(page: PageSpec) -> str | None:
     return "heading_word"
 
 
-def _build_page_descriptions(pages: list[PageSpec], analyses: dict[str, PhotoAnalysis]) -> list[dict]:
-    """Build a description of each page for the narrative prompt."""
-    descs = []
-    for i, page in enumerate(pages):
+def _build_page_descriptions(
+    pages: list[PageSpec], analyses: dict[str, PhotoAnalysis]
+) -> tuple[list[dict], list[int]]:
+    """Build a description of each page for the narrative prompt.
+
+    Returns (descriptions, index_map) where index_map[i] gives the
+    absolute page index for description i.  Descriptions use sequential
+    0-based indices so the LLM returns indices that map cleanly back.
+    """
+    descs: list[dict] = []
+    index_map: list[int] = []
+
+    for abs_idx, page in enumerate(pages):
         if page.template in ("cover", "back_cover", "dedication"):
             continue
         n_type = _determine_narrative_type(page)
@@ -114,14 +123,17 @@ def _build_page_descriptions(pages: list[PageSpec], analyses: dict[str, PhotoAna
             else:
                 photo_descs.append({"setting": "unknown", "mood": "neutral"})
 
+        seq_idx = len(descs)
         descs.append({
-            "page_index": i,
+            "page_index": seq_idx,
             "template": page.template,
             "photo_count": len(page.photos),
             "expected_type": n_type,
             "photos": photo_descs,
         })
-    return descs
+        index_map.append(abs_idx)
+
+    return descs, index_map
 
 
 def generate_narrative(
@@ -142,7 +154,7 @@ def generate_narrative(
     except ImportError:
         return []
 
-    page_descs = _build_page_descriptions(pages, analyses)
+    page_descs, index_map = _build_page_descriptions(pages, analyses)
     if not page_descs:
         return []
 
@@ -174,11 +186,19 @@ def generate_narrative(
 
     sections = []
     for item in results:
+        seq_idx = item.get("page_index", 0)
+        # Map the sequential index back to the absolute page index
+        if 0 <= seq_idx < len(index_map):
+            abs_idx = index_map[seq_idx]
+        else:
+            abs_idx = seq_idx
         sections.append(NarrativeSection(
-            page_index=item.get("page_index", 0),
+            page_index=abs_idx,
             text=item.get("text", ""),
             narrative_type=item.get("type", "sentence"),
         ))
+
+    click.echo(f"Narrative generated: {len(sections)} sections assigned")
     return sections
 
 

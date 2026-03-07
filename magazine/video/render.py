@@ -101,6 +101,7 @@ def _build_video_data(
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
     selected_pages = _select_best_photos(pages, analyses)
+    logger.info("Video: %d body pages selected from %d total", len(selected_pages), len(pages))
     scenes = []
 
     for page in selected_pages:
@@ -108,6 +109,8 @@ def _build_video_data(
         for photo in page.photos:
             src = _copy_photo_to_public(photo)
             if not src:
+                logger.warning("Video: could not find file for photo %s (keys: %s)",
+                               photo.get("id"), list(photo.keys()))
                 continue
             media_type = photo.get("media_type", "photo")
             pd = {
@@ -194,7 +197,8 @@ def render_video(
     # Build data JSON
     data = _build_video_data(pages, analyses, title, subtitle)
     if not data["scenes"]:
-        logger.warning("No scenes to render — skipping video")
+        logger.warning("No scenes to render — skipping video (check photo file paths)")
+        save_json(VIDEO_STATUS, {"status": "failed", "error": "No photo files found for video scenes"})
         return None
 
     total_frames = data["totalDurationFrames"]
@@ -263,24 +267,31 @@ def render_video(
             _update_progress(progress, elapsed)
 
         # Drain remaining output
-        _, stderr_tail = proc.communicate(timeout=10)
+        stdout_tail, stderr_tail = proc.communicate(timeout=30)
 
         if proc.returncode != 0:
             full_stderr = stderr_tail or ""
+            error_msg = f"Remotion exit code {proc.returncode}"
             logger.error("Remotion render failed (exit %d):\n%s", proc.returncode, full_stderr[-2000:])
+            save_json(VIDEO_STATUS, {"status": "failed", "error": error_msg})
             return None
 
         if output_path.exists():
             logger.info("Video rendered: %s", output_path)
             return output_path
 
+        logger.error("Remotion exited 0 but output file not found: %s", output_path)
+        return None
+
     except subprocess.TimeoutExpired:
-        logger.error("Remotion render timed out (5 min)")
+        logger.error("Remotion render timed out")
         try:
             proc.kill()
         except Exception:
             pass
+        save_json(VIDEO_STATUS, {"status": "failed", "error": "Render timed out"})
     except FileNotFoundError:
         logger.error("npx/remotion not found")
+        save_json(VIDEO_STATUS, {"status": "failed", "error": "npx not found — install Node.js"})
 
     return None

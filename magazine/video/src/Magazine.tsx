@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Sequence, useVideoConfig, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Sequence, useVideoConfig, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { Opening } from "./scenes/Opening";
 import { SinglePhoto } from "./scenes/SinglePhoto";
 import { VideoClip } from "./scenes/VideoClip";
@@ -20,18 +20,24 @@ export const Magazine: React.FC = () => {
   const closingDuration = 4 * fps;
   const defaultPalette = getPalette("warm_gold");
 
-  // Select music track based on scene palettes
-  const scenePalettes = data.scenes.map((s) => s.palette as PaletteKey);
-  const track = selectTrack(scenePalettes);
-  const musicSrc = `music/tracks/${track.file}`;
+  const scenes = data.scenes ?? [];
+
+  // Select music track based on scene palettes (fallback to default if no scenes)
+  const scenePalettes = scenes.map((s) => s.palette as PaletteKey);
+  const track = selectTrack(scenePalettes.length > 0 ? scenePalettes : ["warm_gold"]);
+  const musicSrc = staticFile(`music/tracks/${track.file}`);
 
   // Music volume: fade in during opening, fade out during closing
-  const musicVolume = interpolate(
-    frame,
-    [0, fps, durationInFrames - 2 * fps, durationInFrames],
-    [0, 0.6, 0.6, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
+  const fadeIn = Math.min(fps, Math.floor(durationInFrames / 4));
+  const fadeOut = Math.min(2 * fps, Math.floor(durationInFrames / 4));
+  const musicVolume = durationInFrames > fadeIn + fadeOut
+    ? interpolate(
+        frame,
+        [0, fadeIn, durationInFrames - fadeOut, durationInFrames],
+        [0, 0.6, 0.6, 0],
+        { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+      )
+    : 0.6;
 
   let currentFrame = 0;
 
@@ -52,7 +58,7 @@ export const Magazine: React.FC = () => {
       {/* Photo/Video scenes */}
       {(() => {
         currentFrame = openingDuration;
-        return data.scenes.map((scene, i) => {
+        return scenes.map((scene, i) => {
           const from = currentFrame;
           currentFrame += scene.durationFrames;
 

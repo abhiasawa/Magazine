@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, staticFile } from "remotion";
 
 interface KenBurnsProps {
   src: string;
@@ -44,7 +44,7 @@ export const KenBurns: React.FC<KenBurnsProps> = ({
   return (
     <AbsoluteFill>
       <Img
-        src={src}
+        src={staticFile(src)}
         style={{
           width: "100%",
           height: "100%",

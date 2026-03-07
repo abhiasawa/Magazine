@@ -1,4 +1,4 @@
-import { AbsoluteFill, Video, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Video, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { NarrativeText } from "../components/NarrativeText";
 import type { SceneData } from "../lib/types";
 import { getPalette } from "../lib/palette";
@@ -20,7 +20,7 @@ export const VideoClip: React.FC<VideoClipProps> = ({ scene }) => {
     <AbsoluteFill style={{ backgroundColor: palette.bg, opacity: fadeIn }}>
       {photo.videoSrc ? (
         <Video
-          src={photo.videoSrc}
+          src={staticFile(photo.videoSrc)}
           style={{
             width: "100%",
             height: "100%",
@@ -32,7 +32,7 @@ export const VideoClip: React.FC<VideoClipProps> = ({ scene }) => {
       ) : (
         // Fallback to still frame if no video available
         <img
-          src={photo.src}
+          src={staticFile(photo.src)}
           style={{
             width: "100%",
             height: "100%",

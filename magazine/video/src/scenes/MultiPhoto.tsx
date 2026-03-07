@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { NarrativeText } from "../components/NarrativeText";
 import type { SceneData } from "../lib/types";
 import { getPalette } from "../lib/palette";
@@ -54,7 +54,7 @@ export const MultiPhoto: React.FC<MultiPhotoProps> = ({ scene }) => {
               }}
             >
               <Img
-                src={photo.src}
+                src={staticFile(photo.src)}
                 style={{
                   width: "100%",
                   height: "100%",
