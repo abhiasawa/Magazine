@@ -152,10 +152,8 @@ def estimate_page_count(
 def _select_photo(
     regular: list[dict],
     heroes: list[dict],
-    reuse_pool: list[dict],
-    reuse_idx: list[int],
     prefer_hero: bool = False,
-) -> dict:
+) -> dict | None:
     if prefer_hero and heroes:
         return clone_photo(heroes.pop(0))
 
@@ -165,44 +163,26 @@ def _select_photo(
     if heroes:
         return clone_photo(heroes.pop(0))
 
-    # Reuse pass for low-photo/high-page scenarios.
-    if not reuse_pool:
-        raise ValueError("No photos available to place in layout")
-    picked = clone_photo(reuse_pool[reuse_idx[0] % len(reuse_pool)])
-    reuse_idx[0] += 1
-    return picked
+    return None  # No more photos — never reuse
 
 
 def _take_n(
     n: int,
     regular: list[dict],
     heroes: list[dict],
-    reuse_pool: list[dict],
-    reuse_idx: list[int],
     prefer_hero_first: bool = False,
 ) -> list[dict]:
     photos = []
     for idx in range(n):
-        photos.append(
-            _select_photo(
-                regular=regular,
-                heroes=heroes,
-                reuse_pool=reuse_pool,
-                reuse_idx=reuse_idx,
-                prefer_hero=prefer_hero_first and idx == 0,
-            )
+        photo = _select_photo(
+            regular=regular,
+            heroes=heroes,
+            prefer_hero=prefer_hero_first and idx == 0,
         )
+        if photo is None:
+            break
+        photos.append(photo)
     return photos
-
-
-def _overflow_guard(photo_count: int, target_pages: int, compact_density: float = 2.1):
-    capacity = int(target_pages * compact_density)
-    if photo_count > capacity:
-        overflow = photo_count - capacity
-        raise ValueError(
-            f"Selected {photo_count} photos, but estimated safe capacity for {target_pages} pages is {capacity}. "
-            f"Reduce selection by ~{overflow} photos or increase max pages."
-        )
 
 
 def build_layout(
@@ -233,13 +213,12 @@ def build_layout(
         except Exception as exc:
             raise ValueError(f"Invalid pages value: {pages}") from exc
 
-    _overflow_guard(photo_count=len(photos), target_pages=target_pages)
-
     remaining = [clone_photo(p) for p in photos]
     heroes = [p for p in remaining if p.get("hero_pin")]
     regular = [p for p in remaining if not p.get("hero_pin")]
-    reuse_pool = remaining[:] if remaining else []
-    reuse_idx = [0]
+
+    def _available():
+        return len(regular) + len(heroes)
 
     pages_out: list[PageSpec] = []
     page_num = 1
@@ -293,23 +272,45 @@ def build_layout(
         "editorial": 1,
     }
 
+    # Downgrade chain: when not enough photos for a template, pick a simpler one
+    _DOWNGRADE = {
+        4: "collage4",
+        3: "three_photo",
+        2: "two_photo",
+        1: "full_bleed",
+    }
+
     premium_templates = {"full_bleed", "cinematic", "editorial"}
 
     for idx in range(body_pages):
+        avail = _available()
+        if avail == 0:
+            break  # No more photos — stop adding pages
+
         template = template_cycle[idx % len(template_cycle)]
         # Inject hero pages periodically until pinned heroes are exhausted.
         if heroes and idx % 5 == 0:
             template = "full_bleed"
 
         need = photo_requirements[template]
+
+        # Downgrade template if not enough photos remain
+        if avail < need:
+            for count in (3, 2, 1):
+                if avail >= count:
+                    template = _DOWNGRADE[count]
+                    need = count
+                    break
+
         page_photos = _take_n(
             need,
             regular,
             heroes,
-            reuse_pool,
-            reuse_idx,
             prefer_hero_first=template in premium_templates,
         )
+
+        if not page_photos:
+            break
 
         pages_out.append(
             PageSpec(
@@ -320,24 +321,35 @@ def build_layout(
         )
         page_num += 1
 
-    # Fixed closing pages
-    pages_out.append(
-        PageSpec(
-            template="cinematic",
-            photos=_take_n(1, regular, heroes, reuse_pool, reuse_idx, prefer_hero_first=True),
-            page_number=page_num,
+    # Fixed closing pages — only if photos remain
+    if _available() >= 1:
+        pages_out.append(
+            PageSpec(
+                template="cinematic",
+                photos=_take_n(1, regular, heroes, prefer_hero_first=True),
+                page_number=page_num,
+            )
         )
-    )
-    page_num += 1
+        page_num += 1
 
-    back_photo = _select_photo(regular, heroes, reuse_pool, reuse_idx, prefer_hero=False)
-    pages_out.append(
-        PageSpec(
-            template="back_cover",
-            photos=[back_photo],
-            title=title,
-            page_number=page_num,
+    if _available() >= 1:
+        back_photo = _select_photo(regular, heroes, prefer_hero=False)
+        pages_out.append(
+            PageSpec(
+                template="back_cover",
+                photos=[back_photo] if back_photo else [],
+                title=title,
+                page_number=page_num,
+            )
         )
-    )
+    else:
+        pages_out.append(
+            PageSpec(
+                template="back_cover",
+                photos=[],
+                title=title,
+                page_number=page_num,
+            )
+        )
 
     return pages_out

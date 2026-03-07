@@ -169,6 +169,7 @@ def generate_narrative(
         results = json.loads(raw_text)
     except Exception as exc:
         logger.warning("Narrative generation failed: %s", exc)
+        click.echo(f"Warning: Narrative generation failed: {exc}")
         return []
 
     sections = []

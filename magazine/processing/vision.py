@@ -176,6 +176,7 @@ def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAn
             all_analyses.extend(results)
         except Exception as exc:
             logger.warning("Vision analysis batch failed: %s", exc)
+            click.echo(f"Warning: Vision analysis batch failed: {exc}")
             continue
 
     # Update cache

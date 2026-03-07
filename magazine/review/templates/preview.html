@@ -2,33 +2,222 @@
 
 {% block content %}
 <section class="preview-shell">
-    <div class="preview-copy">
-        <span class="preview-kicker">Maison Folio Preview</span>
-        <h1 class="preview-title">Review the volume, then download it.</h1>
-        <div class="preview-actions">
-            <button type="button" class="btn btn-primary" id="download-pdf">Download PDF</button>
-            <a class="btn btn-secondary" id="download-video" href="{{ url_for('download_video') }}" style="display:none;">Download Video</a>
-            <a class="btn btn-ghost" href="{{ url_for('import_screen') }}">Create another</a>
-        </div>
-        <p class="preview-status" id="preview-status">Loading your PDF preview…</p>
+    <div class="preview-header">
+        <span class="preview-kicker">Maison Folio</span>
+        <h1 class="preview-title">Your volume is ready.</h1>
+    </div>
 
-        <div id="video-section" style="display:none; margin-top:2rem;">
-            <h2 class="preview-subtitle" style="font-family:var(--font-display);font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);margin-bottom:.75rem;">Video Reel</h2>
-            <video id="video-preview" controls playsinline
-                style="width:100%;max-width:360px;border-radius:8px;background:#000;">
-                <source src="{{ url_for('preview_video') }}" type="video/mp4">
-            </video>
+    <div class="preview-grid">
+        <!-- PDF Column -->
+        <div class="preview-card">
+            <div class="card-label">
+                <span class="card-dot card-dot-pdf"></span>
+                <span>Print-Ready PDF</span>
+            </div>
+            <div class="preview-frame">
+                <iframe
+                    id="preview-embed"
+                    class="preview-embed"
+                    title="Maison Folio PDF preview"
+                ></iframe>
+                <div class="preview-overlay" id="pdf-overlay">
+                    <span class="overlay-text" id="pdf-status-text">Loading preview&hellip;</span>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button type="button" class="btn btn-primary" id="download-pdf" disabled>Download PDF</button>
+            </div>
+        </div>
+
+        <!-- Video Column -->
+        <div class="preview-card">
+            <div class="card-label">
+                <span class="card-dot card-dot-video"></span>
+                <span>Social Video Reel</span>
+                <span class="card-badge" id="video-badge">Rendering</span>
+            </div>
+            <div class="video-frame" id="video-frame">
+                <video id="video-preview" controls playsinline>
+                    <source src="{{ url_for('preview_video') }}" type="video/mp4">
+                </video>
+                <div class="preview-overlay" id="video-overlay">
+                    <div class="spinner" id="video-spinner"></div>
+                    <span class="overlay-text" id="video-status-text">Rendering video&hellip;</span>
+                </div>
+            </div>
+            <div class="card-actions">
+                <a class="btn btn-primary" id="download-video" href="{{ url_for('download_video') }}" disabled>Download Video</a>
+            </div>
         </div>
     </div>
 
-    <div class="preview-frame">
-        <iframe
-            id="preview-embed"
-            class="preview-embed"
-            title="Maison Folio PDF preview"
-        ></iframe>
+    <div class="preview-footer">
+        <a class="btn btn-ghost" href="{{ url_for('import_screen') }}">Create another volume</a>
     </div>
 </section>
+
+<style>
+    .preview-shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+    }
+    .preview-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    .preview-kicker {
+        display: block;
+        font-family: var(--font-sans, sans-serif);
+        font-size: .7rem;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        color: var(--color-muted, #8b8478);
+        margin-bottom: .5rem;
+    }
+    .preview-title {
+        font-family: var(--font-display, serif);
+        font-size: 2rem;
+        font-weight: 400;
+        color: var(--color-text, #f4f1ea);
+        letter-spacing: .02em;
+    }
+
+    /* Grid */
+    .preview-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 2rem;
+        align-items: start;
+    }
+    @media (max-width: 800px) {
+        .preview-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .preview-card {
+        background: rgba(255,255,255,.03);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+    .card-label {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-family: var(--font-sans, sans-serif);
+        font-size: .75rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--color-muted, #8b8478);
+        margin-bottom: 1rem;
+    }
+    .card-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    .card-dot-pdf { background: #c7aa73; }
+    .card-dot-video { background: #9ba8b8; }
+    .card-badge {
+        margin-left: auto;
+        font-size: .65rem;
+        padding: .2rem .6rem;
+        border-radius: 100px;
+        background: rgba(155,168,184,.15);
+        color: #9ba8b8;
+        letter-spacing: .06em;
+    }
+    .card-badge.ready { background: rgba(120,180,120,.15); color: #8bc78b; }
+    .card-badge.failed { background: rgba(180,120,120,.15); color: #c78b8b; }
+    .card-actions {
+        margin-top: 1rem;
+        display: flex;
+        gap: .75rem;
+    }
+    .card-actions .btn {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+    }
+    .card-actions .btn[disabled] {
+        opacity: .4;
+        pointer-events: none;
+    }
+
+    /* PDF Preview */
+    .preview-frame {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 297/210;
+        background: #111;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .preview-embed {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    /* Video Preview */
+    .video-frame {
+        position: relative;
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto;
+        aspect-ratio: 9/16;
+        background: #0a0a0a;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .video-frame video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+
+    /* Overlays */
+    .preview-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10,10,10,.85);
+        transition: opacity .4s ease;
+    }
+    .preview-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .overlay-text {
+        font-family: var(--font-sans, sans-serif);
+        font-size: .78rem;
+        color: var(--color-muted, #8b8478);
+        letter-spacing: .04em;
+    }
+
+    /* Spinner */
+    .spinner {
+        width: 28px;
+        height: 28px;
+        border: 2px solid rgba(155,168,184,.2);
+        border-top-color: #9ba8b8;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+        margin-bottom: .75rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    .preview-footer {
+        text-align: center;
+        margin-top: 2.5rem;
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -36,16 +225,20 @@
     const PDF_STORE = 'maison-folio-preview';
     const PDF_KEY = 'latest';
     const previewEmbed = document.getElementById('preview-embed');
-    const previewStatus = document.getElementById('preview-status');
-    const downloadButton = document.getElementById('download-pdf');
+    const pdfOverlay = document.getElementById('pdf-overlay');
+    const pdfStatusText = document.getElementById('pdf-status-text');
+    const downloadPdf = document.getElementById('download-pdf');
+    const videoPreview = document.getElementById('video-preview');
+    const videoOverlay = document.getElementById('video-overlay');
+    const videoStatusText = document.getElementById('video-status-text');
+    const videoBadge = document.getElementById('video-badge');
+    const downloadVideo = document.getElementById('download-video');
     let previewUrl = null;
 
     function openPreviewDb() {
         return new Promise((resolve, reject) => {
             const req = indexedDB.open(PDF_STORE, 1);
-            req.onupgradeneeded = () => {
-                req.result.createObjectStore('pdfs');
-            };
+            req.onupgradeneeded = () => req.result.createObjectStore('pdfs');
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });
@@ -63,20 +256,20 @@
         return payload;
     }
 
-    async function mountPreview() {
+    async function mountPdfPreview() {
         try {
             const payload = await readPreviewBlob();
             if (!payload?.blob) {
-                previewStatus.textContent = 'Preview not available in this browser session. Generate the PDF again to preview it here.';
-                downloadButton.disabled = true;
+                pdfStatusText.textContent = 'No preview available. Generate a magazine first.';
                 return;
             }
 
             previewUrl = URL.createObjectURL(payload.blob);
             previewEmbed.src = `${previewUrl}#view=FitH`;
-            previewStatus.textContent = 'Preview ready.';
+            pdfOverlay.classList.add('hidden');
+            downloadPdf.disabled = false;
 
-            downloadButton.addEventListener('click', () => {
+            downloadPdf.addEventListener('click', () => {
                 const a = document.createElement('a');
                 a.href = previewUrl;
                 a.download = payload.filename || 'Maison-Folio.pdf';
@@ -85,8 +278,44 @@
                 a.remove();
             });
         } catch (err) {
-            previewStatus.textContent = 'Could not load the preview. Generate the PDF again and retry.';
-            downloadButton.disabled = true;
+            pdfStatusText.textContent = 'Could not load preview. Generate the magazine again.';
+        }
+    }
+
+    // Video status polling
+    let videoReady = false;
+
+    async function checkVideoStatus() {
+        try {
+            const res = await fetch('/api/video/status');
+            const data = await res.json();
+
+            if (data.status === 'ready') {
+                videoReady = true;
+                videoOverlay.classList.add('hidden');
+                videoPreview.style.display = 'block';
+                videoPreview.load();
+                videoBadge.textContent = 'Ready';
+                videoBadge.className = 'card-badge ready';
+                downloadVideo.removeAttribute('disabled');
+                return true;
+            } else if (data.status === 'failed') {
+                videoStatusText.textContent = 'Video unavailable';
+                document.getElementById('video-spinner').style.display = 'none';
+                videoBadge.textContent = 'Unavailable';
+                videoBadge.className = 'card-badge failed';
+                return true;
+            }
+            return false; // still rendering
+        } catch {
+            return false;
+        }
+    }
+
+    async function pollVideoStatus() {
+        const done = await checkVideoStatus();
+        if (!done) {
+            setTimeout(pollVideoStatus, 2500);
         }
     }
 
@@ -94,16 +323,7 @@
         if (previewUrl) URL.revokeObjectURL(previewUrl);
     });
 
-    mountPreview();
-
-    // Check if video is available
-    fetch('{{ url_for("preview_video") }}', { method: 'HEAD' })
-        .then(resp => {
-            if (resp.ok) {
-                document.getElementById('video-section').style.display = '';
-                document.getElementById('download-video').style.display = '';
-            }
-        })
-        .catch(() => {});
+    mountPdfPreview();
+    pollVideoStatus();
 </script>
 {% endblock %}
