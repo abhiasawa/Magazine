@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
-from magazine.config import OUTPUT_DIR, ORIGINALS_DIR, THUMBNAILS_DIR
+from magazine.config import OUTPUT_DIR, ORIGINALS_DIR, THUMBNAILS_DIR, VIDEO_STATUS
 from magazine.layout.engine import PageSpec
 from magazine.processing.vision import PhotoAnalysis
+from magazine.services.state import save_json
 
 logger = logging.getLogger(__name__)
 
@@ -194,31 +197,89 @@ def render_video(
         logger.warning("No scenes to render — skipping video")
         return None
 
+    total_frames = data["totalDurationFrames"]
     DATA_JSON.write_text(json.dumps(data, indent=2))
-    logger.info("Video data written: %d scenes, %d total frames", len(data["scenes"]), data["totalDurationFrames"])
+    logger.info("Video data written: %d scenes, %d total frames", len(data["scenes"]), total_frames)
 
-    # Render with Remotion
+    # Estimate render time: ~3 frames/sec on average hardware
+    estimated_seconds = max(10, int(total_frames / 3))
+
+    def _update_progress(progress: int, elapsed: int):
+        remaining = max(0, estimated_seconds - elapsed)
+        save_json(VIDEO_STATUS, {
+            "status": "rendering",
+            "progress": min(progress, 99),
+            "elapsed": elapsed,
+            "remaining": remaining,
+            "totalFrames": total_frames,
+        })
+
+    _update_progress(0, 0)
+
+    # Render with Remotion using Popen for progress tracking
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [
                 npx, "remotion", "render",
                 "src/index.ts", "Magazine",
                 f"--output={output_path}",
                 "--codec=h264",
+                "--log=verbose",
             ],
             cwd=str(VIDEO_DIR),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=300,
         )
-        if result.returncode != 0:
-            logger.error("Remotion render failed:\n%s", result.stderr)
+
+        start = time.monotonic()
+        frame_re = re.compile(r"(\d+)\s*/\s*(\d+)")
+        last_parsed_pct = 0
+
+        while proc.poll() is None:
+            # Read stderr non-blocking (readline blocks until \n)
+            line = proc.stderr.readline()
+            elapsed = int(time.monotonic() - start)
+
+            # Try to parse actual frame progress from Remotion output
+            if line:
+                m = frame_re.search(line)
+                if m:
+                    rendered = int(m.group(1))
+                    total = int(m.group(2))
+                    if total > 0:
+                        last_parsed_pct = int(rendered / total * 100)
+                        # Recalibrate estimate based on actual speed
+                        if rendered > 5:
+                            speed = rendered / max(elapsed, 1)
+                            estimated_seconds = int(total / max(speed, 0.5))
+
+            # Use parsed progress if available, else time-based estimate
+            if last_parsed_pct > 0:
+                progress = last_parsed_pct
+            else:
+                progress = min(95, int(elapsed / max(estimated_seconds, 1) * 100))
+
+            _update_progress(progress, elapsed)
+
+        # Drain remaining output
+        _, stderr_tail = proc.communicate(timeout=10)
+
+        if proc.returncode != 0:
+            full_stderr = stderr_tail or ""
+            logger.error("Remotion render failed (exit %d):\n%s", proc.returncode, full_stderr[-2000:])
             return None
+
         if output_path.exists():
             logger.info("Video rendered: %s", output_path)
             return output_path
+
     except subprocess.TimeoutExpired:
         logger.error("Remotion render timed out (5 min)")
+        try:
+            proc.kill()
+        except Exception:
+            pass
     except FileNotFoundError:
         logger.error("npx/remotion not found")
 

@@ -42,6 +42,15 @@
                 </video>
                 <div class="preview-overlay" id="video-overlay">
                     <div class="spinner" id="video-spinner"></div>
+                    <div class="video-progress-wrap" id="video-progress-wrap">
+                        <div class="video-progress-track">
+                            <div class="video-progress-fill" id="video-progress-fill"></div>
+                        </div>
+                        <div class="video-progress-meta">
+                            <span class="video-progress-pct" id="video-progress-pct">0%</span>
+                            <span class="video-progress-eta" id="video-progress-eta"></span>
+                        </div>
+                    </div>
                     <span class="overlay-text" id="video-status-text">Rendering video&hellip;</span>
                 </div>
             </div>
@@ -212,6 +221,36 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Video progress bar */
+    .video-progress-wrap {
+        width: 80%;
+        max-width: 200px;
+        margin-bottom: .75rem;
+    }
+    .video-progress-track {
+        width: 100%;
+        height: 4px;
+        background: rgba(155,168,184,.15);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .video-progress-fill {
+        height: 100%;
+        width: 0%;
+        background: #9ba8b8;
+        border-radius: 2px;
+        transition: width .6s ease;
+    }
+    .video-progress-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: .35rem;
+        font-family: var(--font-sans, sans-serif);
+        font-size: .65rem;
+        color: var(--color-muted, #8b8478);
+        letter-spacing: .03em;
+    }
+
     /* Footer */
     .preview-footer {
         text-align: center;
@@ -283,7 +322,17 @@
     }
 
     // Video status polling
-    let videoReady = false;
+    const videoProgressFill = document.getElementById('video-progress-fill');
+    const videoProgressPct = document.getElementById('video-progress-pct');
+    const videoProgressEta = document.getElementById('video-progress-eta');
+
+    function formatEta(seconds) {
+        if (seconds <= 0) return '';
+        if (seconds < 60) return `~${seconds}s left`;
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `~${m}m ${s}s left`;
+    }
 
     async function checkVideoStatus() {
         try {
@@ -291,20 +340,32 @@
             const data = await res.json();
 
             if (data.status === 'ready') {
-                videoReady = true;
-                videoOverlay.classList.add('hidden');
-                videoPreview.style.display = 'block';
-                videoPreview.load();
+                videoProgressFill.style.width = '100%';
+                videoProgressPct.textContent = '100%';
+                videoProgressEta.textContent = '';
+                videoStatusText.textContent = 'Video ready';
+                setTimeout(() => {
+                    videoOverlay.classList.add('hidden');
+                    videoPreview.style.display = 'block';
+                    videoPreview.load();
+                }, 400);
                 videoBadge.textContent = 'Ready';
                 videoBadge.className = 'card-badge ready';
                 downloadVideo.removeAttribute('disabled');
                 return true;
             } else if (data.status === 'failed') {
-                videoStatusText.textContent = 'Video unavailable';
+                videoStatusText.textContent = data.error ? 'Video unavailable' : 'Video unavailable';
                 document.getElementById('video-spinner').style.display = 'none';
+                document.getElementById('video-progress-wrap').style.display = 'none';
                 videoBadge.textContent = 'Unavailable';
                 videoBadge.className = 'card-badge failed';
                 return true;
+            } else if (data.status === 'rendering') {
+                const pct = data.progress || 0;
+                videoProgressFill.style.width = pct + '%';
+                videoProgressPct.textContent = pct + '%';
+                videoProgressEta.textContent = formatEta(data.remaining || 0);
+                videoBadge.textContent = pct + '%';
             }
             return false; // still rendering
         } catch {
@@ -315,7 +376,7 @@
     async function pollVideoStatus() {
         const done = await checkVideoStatus();
         if (!done) {
-            setTimeout(pollVideoStatus, 2500);
+            setTimeout(pollVideoStatus, 2000);
         }
     }
 
