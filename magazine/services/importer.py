@@ -9,6 +9,8 @@ from typing import Iterable
 
 from magazine.config import (
     SUPPORTED_EXTENSIONS,
+    SUPPORTED_VIDEO_EXTENSIONS,
+    SUPPORTED_MEDIA_EXTENSIONS,
     ORIGINALS_DIR,
     THUMBNAILS_DIR,
     PHOTO_HASHES,
@@ -30,6 +32,33 @@ from magazine.services.state import (
     normalize_review_entry,
     merge_photos,
 )
+import logging
+import subprocess
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_video_frame(video_path: Path, dest_jpeg: Path, seek_seconds: float = 2.0) -> Path | None:
+    """Extract a representative still frame from a video using FFmpeg."""
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-ss", str(seek_seconds),
+                "-i", str(video_path),
+                "-frames:v", "1",
+                "-q:v", "2",
+                str(dest_jpeg),
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        if dest_jpeg.exists() and dest_jpeg.stat().st_size > 0:
+            return dest_jpeg
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        logger.warning("FFmpeg not available or timed out for %s", video_path.name)
+    return None
+
+
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -106,7 +135,11 @@ def import_existing_paths(paths: Iterable[Path], source_prefix: str) -> dict:
     skipped = 0
 
     for src in paths:
-        if not src.exists() or src.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        if not src.exists():
+            continue
+        ext = src.suffix.lower()
+        is_video = ext in SUPPORTED_VIDEO_EXTENSIONS
+        if ext not in SUPPORTED_MEDIA_EXTENSIONS:
             continue
 
         # Hash original bytes to dedupe across imports/sources.
@@ -118,9 +151,27 @@ def import_existing_paths(paths: Iterable[Path], source_prefix: str) -> dict:
         pid = _new_photo_id(src.name, content_hash, existing_ids)
         existing_ids.add(pid)
 
-        dest = ORIGINALS_DIR / f"{pid}.jpg"
-        final_path = _ensure_jpeg(src, dest)
-        rec = _build_photo_record(pid, final_path, f"{source_prefix}:{src}", content_hash)
+        if is_video:
+            # Store original video and extract a representative frame
+            video_dest = ORIGINALS_DIR / f"{pid}{ext}"
+            shutil.copy2(src, video_dest)
+            frame_dest = ORIGINALS_DIR / f"{pid}.jpg"
+            extracted = _extract_video_frame(src, frame_dest)
+            if not extracted:
+                # Fall back to first frame
+                extracted = _extract_video_frame(src, frame_dest, seek_seconds=0.0)
+            if not extracted:
+                logger.warning("Could not extract frame from %s, skipping", src.name)
+                continue
+            rec = _build_photo_record(pid, frame_dest, f"{source_prefix}:{src}", content_hash)
+            rec["media_type"] = "video"
+            rec["video_path"] = str(video_dest)
+        else:
+            dest = ORIGINALS_DIR / f"{pid}.jpg"
+            final_path = _ensure_jpeg(src, dest)
+            rec = _build_photo_record(pid, final_path, f"{source_prefix}:{src}", content_hash)
+            rec["media_type"] = "photo"
+
         imported.append(rec)
         hash_map[content_hash] = pid
 

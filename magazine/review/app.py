@@ -23,6 +23,8 @@ from magazine.config import (
     WORKSPACE,
 )
 from magazine.layout.engine import build_layout, estimate_page_count
+from magazine.processing.narrative import assign_narrative_to_pages
+from magazine.processing.vision import analyze_photos
 from magazine.services.importer import import_existing_paths
 from magazine.services.state import (
     load_photos_manifest,
@@ -368,6 +370,11 @@ def create_app() -> Flask:
 
         try:
             import_result = _download_and_import_google_selection(google_token, google_session_id)
+
+            # AI vision analysis on imported photos
+            all_photos = load_photos_manifest()
+            photo_analyses = analyze_photos(all_photos)
+
             pages_spec = build_layout(
                 title=title,
                 subtitle=subtitle,
@@ -378,9 +385,20 @@ def create_app() -> Flask:
                 fixed_pages=fixed_pages,
             )
 
+            # Assign narrative text + mood palettes to each page
+            assign_narrative_to_pages(pages_spec, photo_analyses, title=title)
+
             from magazine.pdf.generator import generate_pdf
 
             output_path = generate_pdf(pages_spec, style=style)
+
+            # Render video in the background (non-blocking for the PDF response)
+            try:
+                from magazine.video.render import render_video
+
+                render_video(pages_spec, photo_analyses, title=title, subtitle=subtitle)
+            except Exception as video_exc:
+                logger.warning("Video render skipped: %s", video_exc)
 
             logger.info(
                 "magazine_generated selected=%s imported=%s skipped=%s pages=%s",
@@ -399,5 +417,21 @@ def create_app() -> Flask:
             logger.exception("magazine_generate_failed")
             flash(f"Error generating magazine: {exc}", "error")
             return redirect(url_for("import_screen"))
+
+    @app.route("/preview/video")
+    def preview_video():
+        video_path = OUTPUT_DIR / "magazine.mp4"
+        if not video_path.exists():
+            flash("Generate a magazine first to preview the video.", "error")
+            return redirect(url_for("import_screen"))
+        return send_file(video_path, mimetype="video/mp4", as_attachment=False, download_name="Maison-Folio.mp4")
+
+    @app.route("/preview/video/download")
+    def download_video():
+        video_path = OUTPUT_DIR / "magazine.mp4"
+        if not video_path.exists():
+            flash("Generate a magazine first to download the video.", "error")
+            return redirect(url_for("import_screen"))
+        return send_file(video_path, mimetype="video/mp4", as_attachment=True, download_name="Maison-Folio.mp4")
 
     return app

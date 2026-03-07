@@ -22,6 +22,8 @@ class PageSpec:
     dedication: str = ""
     section_title: str = ""
     page_number: int = 0
+    design_mood: str = ""       # "intimate", "expansive", "reflective", "joyful"
+    palette_hint: str = ""      # "warm_gold", "cool_stone", "deep_shadow", "soft_light"
 
 
 def _review_status(entry) -> str:

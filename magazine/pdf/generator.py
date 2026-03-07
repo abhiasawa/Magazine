@@ -154,6 +154,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     H = 210 * mm
     MARGIN = 20 * mm
 
+    # ── Legacy color aliases (used by cover + back_cover which keep their bespoke look) ──
     obsidian = HexColor("#090909")
     coal = HexColor("#171717")
     ivory = HexColor("#f4f1ea")
@@ -164,6 +165,58 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     smoke = HexColor("#efebe4")
     white = Color(1, 1, 1)
 
+    # ── Mood-driven palette system ──
+    # Each palette is a dict of semantic color roles keyed by palette_hint.
+    PALETTES = {
+        "warm_gold": {
+            "bg": HexColor("#0C0A07"),
+            "surface": HexColor("#1A1610"),
+            "text": HexColor("#F0EBE0"),
+            "accent": HexColor("#C7AA73"),
+            "muted": HexColor("#8B7D6B"),
+            "panel": HexColor("#f4f1ea"),
+            "smoke": HexColor("#efebe4"),
+        },
+        "cool_stone": {
+            "bg": HexColor("#0A0B0E"),
+            "surface": HexColor("#14161C"),
+            "text": HexColor("#E8E6E1"),
+            "accent": HexColor("#9BA8B8"),
+            "muted": HexColor("#6B7280"),
+            "panel": HexColor("#E8E6E1"),
+            "smoke": HexColor("#DDD9D2"),
+        },
+        "deep_shadow": {
+            "bg": HexColor("#050505"),
+            "surface": HexColor("#0F0F0F"),
+            "text": HexColor("#D4CFC5"),
+            "accent": HexColor("#A89070"),
+            "muted": HexColor("#5C5549"),
+            "panel": HexColor("#D4CFC5"),
+            "smoke": HexColor("#C8C1B6"),
+        },
+        "soft_light": {
+            "bg": HexColor("#F4F1EA"),
+            "surface": HexColor("#EDE8DD"),
+            "text": HexColor("#1A1814"),
+            "accent": HexColor("#B8956A"),
+            "muted": HexColor("#9B8E7E"),
+            "panel": HexColor("#f4f1ea"),
+            "smoke": HexColor("#efebe4"),
+        },
+    }
+    DEFAULT_PALETTE = PALETTES["warm_gold"]
+
+    def _pal(page):
+        """Resolve palette for a page, defaulting to warm_gold."""
+        return PALETTES.get(page.palette_hint, DEFAULT_PALETTE)
+
+    def _page_accent(page):
+        """Return the accent color for a page's palette."""
+        pal = _pal(page)
+        return pal["accent"]
+
+    # ── Fonts ──
     display_font = "Times-BoldItalic"
     serif_font = "Times-Roman"
     sans_font = "Helvetica"
@@ -188,6 +241,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         sans_font = "MaisonSans"
 
     c = canvas.Canvas(str(output_path), pagesize=(W, H))
+
+    # ── Core drawing primitives ──
 
     def _fill_page(color):
         c.setFillColor(color)
@@ -376,8 +431,9 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.drawPath(p, fill=1, stroke=0)
         c.restoreState()
 
-    def _draw_accent_rule(x, y, length, horizontal=True, alpha=0.28):
-        c.setStrokeColor(Color(gold.red, gold.green, gold.blue, alpha=alpha))
+    def _draw_accent_rule(x, y, length, horizontal=True, alpha=0.28, color=None):
+        ac = color or gold
+        c.setStrokeColor(Color(ac.red, ac.green, ac.blue, alpha=alpha))
         c.setLineWidth(0.9)
         if horizontal:
             c.line(x, y, x + length, y)
@@ -390,7 +446,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.line(x, y, x + size, y)
         c.line(x, y, x, y - size)
 
-    def _draw_text_block(text, x, y, font, size, color, max_width=None, align="left"):
+    def _draw_text_block(text, x, y, font, size, color, max_width=None, align="left", leading_mult=1.3):
         """Draw wrapped text and return the final y position."""
         c.setFont(font, size)
         c.setFillColor(color)
@@ -409,11 +465,14 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                 current = word
         if current:
             lines.append(current)
-        leading = size * 1.3
+        leading = size * leading_mult
         for line in lines:
             if align == "center":
                 lw = c.stringWidth(line, font, size)
                 c.drawString(x + (max_width - lw) / 2, y, line)
+            elif align == "right":
+                lw = c.stringWidth(line, font, size)
+                c.drawString(x + max_width - lw, y, line)
             else:
                 c.drawString(x, y, line)
             y -= leading
@@ -424,14 +483,109 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.setLineWidth(0.3)
         c.line(x1, y, x2, y)
 
-    def _editorial_bg(light=True):
-        _fill_page(ivory if light else obsidian)
-        c.setFillColor(Color(sand.red, sand.green, sand.blue, alpha=0.18 if light else 0.10))
-        c.circle(W * 0.13, H * 0.84, 36 * mm, fill=1, stroke=0)
-        c.circle(W * 0.88, H * 0.2, 26 * mm, fill=1, stroke=0)
-        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.12))
-        c.rect(W * 0.68, H * 0.64, 52 * mm, 2 * mm, fill=1, stroke=0)
-        c.rect(W * 0.08, H * 0.14, 34 * mm, 2 * mm, fill=1, stroke=0)
+    # ── Narrative text helpers ──
+
+    def _draw_gradient_scrim(x, y, w, h, steps=12):
+        """Draw a bottom-to-top gradient scrim for text legibility over photos."""
+        step_h = h / steps
+        for i in range(steps):
+            alpha = 0.52 * (1 - i / steps) ** 1.8
+            c.setFillColor(Color(0, 0, 0, alpha=alpha))
+            c.rect(x, y + i * step_h, w, step_h + 0.5, fill=1, stroke=0)
+
+    def _draw_narrative_sentence(page, x, y, max_width):
+        """Render a narrative sentence on a page if present."""
+        if not page.quote or page.quote.get("type") != "sentence":
+            return
+        text = page.quote.get("text", "")
+        if not text:
+            return
+        pal = _pal(page)
+        _draw_text_block(
+            text, x, y,
+            font=serif_font, size=14,
+            color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.88),
+            max_width=max_width,
+            leading_mult=1.7,
+        )
+
+    def _draw_heading_word(page, x, y, max_width, size=36, align="center"):
+        """Render an evocative heading word on a multi-photo page."""
+        if not page.quote or page.quote.get("type") != "heading_word":
+            return
+        text = page.quote.get("text", "")
+        if not text:
+            return
+        pal = _pal(page)
+        # Wide letter-spacing via manual character placement for display font
+        c.setFont(display_font, size)
+        accent = pal["accent"]
+        c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.82))
+        text_w = c.stringWidth(text, display_font, size)
+        if align == "center":
+            tx = x + (max_width - text_w) / 2
+        elif align == "right":
+            tx = x + max_width - text_w
+        else:
+            tx = x
+        c.drawString(tx, y, text)
+
+    def _draw_vertical_heading(page, x, y, height):
+        """Render heading word vertically (rotated 90deg) in a gutter."""
+        if not page.quote or page.quote.get("type") != "heading_word":
+            return
+        text = page.quote.get("text", "").upper()
+        if not text:
+            return
+        pal = _pal(page)
+        c.saveState()
+        c.translate(x, y)
+        c.rotate(90)
+        c.setFont(sans_font, 8)
+        c.setFillColor(Color(pal["muted"].red, pal["muted"].green, pal["muted"].blue, alpha=0.62))
+        # Draw with wide letter-spacing
+        char_x = 0
+        for ch in text:
+            c.drawString(char_x, 0, ch)
+            char_x += c.stringWidth(ch, sans_font, 8) + 2.5
+        c.restoreState()
+
+    def _draw_pull_quote_mark(x, y, pal):
+        """Large decorative opening quote mark behind editorial text."""
+        accent = pal["accent"]
+        c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.08))
+        c.setFont(display_font, 96)
+        c.drawString(x, y, "\u201C")
+
+    # ── Background helpers ──
+
+    def _editorial_bg(light=True, page=None):
+        pal = _pal(page) if page else DEFAULT_PALETTE
+        if light:
+            _fill_page(pal.get("panel", ivory))
+        else:
+            _fill_page(pal["bg"])
+        accent = pal["accent"]
+        muted = pal["muted"]
+        mood = page.design_mood if page else ""
+        if mood == "intimate":
+            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.10))
+            c.circle(W * 0.15, H * 0.28, 44 * mm, fill=1, stroke=0)
+        elif mood == "expansive":
+            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.08))
+            c.rect(W * 0.06, H * 0.48, W * 0.88, 1.5 * mm, fill=1, stroke=0)
+        elif mood == "reflective":
+            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.08))
+            c.circle(W * 0.82, H * 0.72, 32 * mm, fill=1, stroke=0)
+            c.circle(W * 0.74, H * 0.62, 18 * mm, fill=1, stroke=0)
+        else:
+            base = sand if light else muted
+            c.setFillColor(Color(base.red, base.green, base.blue, alpha=0.18 if light else 0.10))
+            c.circle(W * 0.13, H * 0.84, 36 * mm, fill=1, stroke=0)
+            c.circle(W * 0.88, H * 0.2, 26 * mm, fill=1, stroke=0)
+            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.12))
+            c.rect(W * 0.68, H * 0.64, 52 * mm, 2 * mm, fill=1, stroke=0)
+            c.rect(W * 0.08, H * 0.14, 34 * mm, 2 * mm, fill=1, stroke=0)
 
     # ── Template renderers ──
 
@@ -499,25 +653,35 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_corner_bracket(W - 18 * mm, H - 18 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.16))
 
     def _dedication(page):
-        _editorial_bg(light=True)
+        _editorial_bg(light=True, page=page)
 
     def _big_polaroid(page):
-        _editorial_bg(light=True)
+        _editorial_bg(light=True, page=page)
         if page.photos:
-            _draw_panel_photo(page.photos[0], 44 * mm, 18 * mm, W - 88 * mm, H - 36 * mm, matte=5 * mm, panel=ivory)
+            pal = _pal(page)
+            _draw_panel_photo(page.photos[0], 44 * mm, 26 * mm, W - 88 * mm, H - 52 * mm, matte=5 * mm, panel=pal["panel"])
+        # Narrative sentence below the polaroid frame
+        _draw_narrative_sentence(page, 44 * mm, 18 * mm, max_width=W - 88 * mm)
 
     def _full_bleed(page):
-        _editorial_bg(light=False)
+        pal = _pal(page)
+        _fill_page(pal["bg"])
         if page.photos:
-            _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.22, bg=coal)
-            c.setFillColor(Color(0, 0, 0, alpha=0.18))
-            c.rect(0, 0, 18 * mm, H, fill=1, stroke=0)
-            _draw_accent_rule(12 * mm, H - 18 * mm, 42 * mm, horizontal=False, alpha=0.34)
-            _draw_accent_rule(W - 52 * mm, 16 * mm, 34 * mm, horizontal=True, alpha=0.34)
-            _draw_corner_bracket(W - 18 * mm, 18 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.15))
+            _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.22, bg=pal["surface"])
+            # Gradient scrim for text legibility at bottom
+            _draw_gradient_scrim(0, 0, W * 0.55, 42 * mm)
+            # Subtle left edge darkening
+            c.setFillColor(Color(0, 0, 0, alpha=0.14))
+            c.rect(0, 0, 14 * mm, H, fill=1, stroke=0)
+            accent = pal["accent"]
+            _draw_accent_rule(10 * mm, H - 18 * mm, 42 * mm, horizontal=False, alpha=0.30, color=accent)
+            _draw_accent_rule(W - 52 * mm, 16 * mm, 34 * mm, horizontal=True, alpha=0.30, color=accent)
+        # Narrative sentence over the scrim
+        _draw_narrative_sentence(page, 22 * mm, 24 * mm, max_width=W * 0.42)
 
     def _cinematic(page):
-        _fill_page(obsidian)
+        pal = _pal(page)
+        _fill_page(pal["bg"])
         if page.photos:
             _draw_polygon_photo(
                 page.photos[0],
@@ -530,19 +694,31 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                     (0, H * 0.72),
                 ],
                 crop_tolerance=0.2,
-                bg=coal,
+                bg=pal["surface"],
             )
-            _draw_split_separator(W * 0.74, H * 0.16, 18 * mm, 48 * mm, fill=ivory)
-            _draw_accent_rule(18 * mm, 16 * mm, 32 * mm, horizontal=True, alpha=0.28)
-            _draw_accent_rule(W - 22 * mm, H - 52 * mm, 24 * mm, horizontal=False, alpha=0.28)
+            accent = pal["accent"]
+            _draw_split_separator(W * 0.74, H * 0.16, 18 * mm, 48 * mm, fill=pal["panel"])
+            _draw_accent_rule(18 * mm, 16 * mm, 32 * mm, horizontal=True, alpha=0.28, color=accent)
+        # Narrative sentence in top-right dead space
+        if page.quote and page.quote.get("type") == "sentence":
+            text = page.quote.get("text", "")
+            if text:
+                _draw_text_block(
+                    text, W * 0.62, H * 0.04 + 8,
+                    font=serif_font, size=13,
+                    color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.72),
+                    max_width=W * 0.34,
+                    leading_mult=1.6,
+                )
 
     def _two_photos(page):
-        _fill_page(obsidian)
+        pal = _pal(page)
+        _fill_page(pal["bg"])
         gap = 4 * mm
         left_w = W * 0.7
         right_w = W - left_w - gap
         if len(page.photos) >= 1:
-            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=coal)
+            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=pal["surface"])
         if len(page.photos) >= 2:
             _draw_shadowed_frame(
                 page.photos[1],
@@ -552,25 +728,28 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                 H - 32 * mm,
                 matte=2.5 * mm,
                 shadow=4 * mm,
-                panel=ivory,
+                panel=pal["panel"],
                 crop_tolerance=0.14,
             )
-        _draw_accent_rule(left_w + gap + 12 * mm, H - 20 * mm, 22 * mm, horizontal=True, alpha=0.34)
-        _draw_corner_bracket(16 * mm, H - 16 * mm, size=9 * mm, color=Color(1, 1, 1, alpha=0.14))
+        accent = pal["accent"]
+        _draw_accent_rule(left_w + gap + 12 * mm, H - 20 * mm, 22 * mm, horizontal=True, alpha=0.34, color=accent)
+        # Heading word at top center
+        _draw_heading_word(page, 0, H - 18 * mm, max_width=left_w, size=32, align="center")
 
     def _three_photos(page):
-        _fill_page(ivory)
+        pal = _pal(page)
+        _fill_page(pal.get("panel", ivory))
         gap = 4 * mm
         left_w = W * 0.6
         right_w = W - left_w - gap
         top_h = H * 0.62
         bot_h = H - top_h - gap
         if len(page.photos) >= 1:
-            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=smoke)
+            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=pal["smoke"])
         for i, photo in enumerate(page.photos[1:3]):
             x = left_w + gap
             y = H - (i + 1) * ((H - gap) / 2)
-            _draw_bleed_photo(photo, x, y, right_w, (H - gap) / 2, crop_tolerance=0.16, bg=smoke)
+            _draw_bleed_photo(photo, x, y, right_w, (H - gap) / 2, crop_tolerance=0.16, bg=pal["smoke"])
         if len(page.photos) >= 1:
             if len(page.photos) >= 2:
                 _draw_shadowed_frame(
@@ -581,7 +760,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                     bot_h - 12 * mm,
                     matte=2.2 * mm,
                     shadow=2.4 * mm,
-                    panel=ivory,
+                    panel=pal["panel"],
                     crop_tolerance=0.1,
                 )
             if len(page.photos) >= 3:
@@ -594,14 +773,16 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                         (left_w * 0.42 + 18 * mm, bot_h),
                     ],
                     crop_tolerance=0.12,
-                    bg=smoke,
+                    bg=pal["smoke"],
                 )
-        _draw_gutter(left_w, H - top_h, gap, top_h, fill=ivory)
-        _draw_gutter(left_w + gap, H / 2 - gap / 2, right_w, gap, fill=ivory)
-        _draw_accent_rule(W - 46 * mm, H - 18 * mm, 22 * mm, horizontal=True, alpha=0.24)
+        _draw_gutter(left_w, H - top_h, gap, top_h, fill=pal.get("panel", ivory))
+        _draw_gutter(left_w + gap, H / 2 - gap / 2, right_w, gap, fill=pal.get("panel", ivory))
+        # Vertical heading in the gutter
+        _draw_vertical_heading(page, left_w + gap / 2 - 1, H * 0.35, H * 0.3)
 
     def _four_photos(page):
-        _fill_page(parchment)
+        pal = _pal(page)
+        _fill_page(pal.get("panel", parchment))
         gap = 4 * mm
         left_w = W * 0.54
         right_w = W - left_w - gap
@@ -620,21 +801,25 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             ((right_w - gap) / 2, bot_h),
         ]
         if len(page.photos) >= 1:
-            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=smoke)
+            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=pal["smoke"])
         for i, photo in enumerate(page.photos[1:4], start=1):
             x, y = positions[i]
             w_slot, h_slot = sizes[i]
             if i == 1:
-                _draw_shadowed_frame(photo, x + 6 * mm, y + 8 * mm, w_slot - 12 * mm, h_slot - 14 * mm, matte=2.5 * mm, panel=ivory, crop_tolerance=0.12)
+                _draw_shadowed_frame(photo, x + 6 * mm, y + 8 * mm, w_slot - 12 * mm, h_slot - 14 * mm, matte=2.5 * mm, panel=pal["panel"], crop_tolerance=0.12)
             else:
-                _draw_bleed_photo(photo, x, y, w_slot, h_slot, crop_tolerance=0.14, bg=smoke)
-        _draw_gutter(left_w, 0, gap, H, fill=parchment)
-        _draw_gutter(left_w + gap, bot_h, right_w, gap, fill=parchment)
-        _draw_gutter(left_w + gap + (right_w - gap) / 2, 0, gap, bot_h, fill=parchment)
-        _draw_corner_bracket(14 * mm, H - 14 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.18))
+                _draw_bleed_photo(photo, x, y, w_slot, h_slot, crop_tolerance=0.14, bg=pal["smoke"])
+        _draw_gutter(left_w, 0, gap, H, fill=pal.get("panel", parchment))
+        _draw_gutter(left_w + gap, bot_h, right_w, gap, fill=pal.get("panel", parchment))
+        _draw_gutter(left_w + gap + (right_w - gap) / 2, 0, gap, bot_h, fill=pal.get("panel", parchment))
+        # Heading word at bottom center
+        accent = pal["accent"]
+        _draw_accent_rule(W * 0.35, 12 * mm, W * 0.3, horizontal=True, alpha=0.20, color=accent)
+        _draw_heading_word(page, 0, 18 * mm, max_width=W, size=28, align="center")
 
     def _editorial(page):
-        _editorial_bg(light=False)
+        _editorial_bg(light=False, page=page)
+        pal = _pal(page)
         img_w = W * 0.68
         if page.photos:
             _draw_polygon_photo(
@@ -646,30 +831,47 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                     (0, H),
                 ],
                 crop_tolerance=0.2,
-                bg=coal,
+                bg=pal["surface"],
             )
-        c.setFillColor(Color(1, 1, 1, alpha=0.06))
+        # Right sidebar — narrative text replaces the old ghost rectangles
+        sidebar_x = img_w + 8 * mm
+        sidebar_w = W - img_w - 16 * mm
+        c.setFillColor(Color(1, 1, 1, alpha=0.04))
         c.rect(img_w + 6 * mm, 0, W - img_w - 6 * mm, H, fill=1, stroke=0)
-        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.22))
+        accent = pal["accent"]
+        c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.22))
         c.rect(img_w + 6 * mm, 0, 2 * mm, H, fill=1, stroke=0)
-        c.setStrokeColor(Color(1, 1, 1, alpha=0.12))
-        c.setLineWidth(0.6)
-        c.rect(img_w + 18 * mm, 24 * mm, W - img_w - 36 * mm, H - 48 * mm, fill=0, stroke=1)
-        _draw_accent_rule(img_w + 22 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24)
+        # Narrative sentence in sidebar with pull-quote mark
+        if page.quote and page.quote.get("type") == "sentence":
+            text = page.quote.get("text", "")
+            if text:
+                _draw_pull_quote_mark(sidebar_x + 2 * mm, H * 0.58, pal)
+                _draw_text_block(
+                    text, sidebar_x + 4 * mm, H * 0.52,
+                    font=serif_font, size=15,
+                    color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.82),
+                    max_width=sidebar_w - 8 * mm,
+                    leading_mult=1.8,
+                )
+                _draw_accent_rule(sidebar_x + 6 * mm, H * 0.38, sidebar_w * 0.5, horizontal=True, alpha=0.24, color=accent)
+        else:
+            # Fallback: subtle accent rule when no narrative text
+            _draw_accent_rule(sidebar_x + 6 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24, color=accent)
 
     def _mosaic(page):
-        _fill_page(ivory)
+        pal = _pal(page)
+        _fill_page(pal.get("panel", ivory))
         gap = 4 * mm
         left_w = W * 0.58
         right_w = W - left_w - gap
         top_h = H * 0.6
         bottom_h = H - top_h - gap
         if len(page.photos) >= 1:
-            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=smoke)
+            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=pal["smoke"])
         if len(page.photos) >= 2:
-            _draw_bleed_photo(page.photos[1], left_w + gap, H - top_h, right_w, top_h, crop_tolerance=0.18, bg=smoke)
+            _draw_bleed_photo(page.photos[1], left_w + gap, H - top_h, right_w, top_h, crop_tolerance=0.18, bg=pal["smoke"])
         if len(page.photos) >= 3:
-            _draw_bleed_photo(page.photos[2], 0, 0, W * 0.4, bottom_h, crop_tolerance=0.12, bg=smoke)
+            _draw_bleed_photo(page.photos[2], 0, 0, W * 0.4, bottom_h, crop_tolerance=0.12, bg=pal["smoke"])
         if len(page.photos) >= 4:
             _draw_shadowed_frame(
                 page.photos[3],
@@ -678,12 +880,15 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
                 W * 0.3,
                 bottom_h - 16 * mm,
                 matte=2.8 * mm,
-                panel=ivory,
+                panel=pal["panel"],
                 crop_tolerance=0.12,
             )
-        _draw_gutter(0, bottom_h, W, gap, fill=ivory)
-        _draw_gutter(left_w, H - top_h, gap, top_h, fill=ivory)
-        _draw_accent_rule(W - 40 * mm, 16 * mm, 22 * mm, horizontal=True, alpha=0.22)
+        _draw_gutter(0, bottom_h, W, gap, fill=pal.get("panel", ivory))
+        _draw_gutter(left_w, H - top_h, gap, top_h, fill=pal.get("panel", ivory))
+        # Heading word bottom-right
+        accent = pal["accent"]
+        _draw_accent_rule(W * 0.55, 14 * mm, W * 0.25, horizontal=True, alpha=0.20, color=accent)
+        _draw_heading_word(page, W * 0.45, 20 * mm, max_width=W * 0.5, size=26, align="center")
 
     def _simple(page):
         """Fallback for unknown templates: place photos in a grid."""

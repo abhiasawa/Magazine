@@ -39,6 +39,8 @@ PHOTO_HASHES = WORKSPACE / "photo_hashes.json"
 
 # Image settings
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".tif"}
+SUPPORTED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+SUPPORTED_MEDIA_EXTENSIONS = SUPPORTED_EXTENSIONS | SUPPORTED_VIDEO_EXTENSIONS
 THUMBNAIL_SIZE = 400  # px, longest side
 PRINT_DPI = 300
 JPEG_QUALITY = 95
@@ -73,6 +75,11 @@ COLORS = {
     "chocolate": "#3C2415",
     "warm_gray": "#7A6B63",
 }
+
+# AI / Vision analysis
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+VISION_ANALYSIS = WORKSPACE / "vision_analysis.json"
+NARRATIVE_CACHE = WORKSPACE / "narrative_cache.json"
 
 # Face detection
 FACE_DETECTOR_BACKEND = "retinaface"

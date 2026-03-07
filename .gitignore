@@ -15,3 +15,4 @@ token.json
 credentials.json
 .dylibs/
 .vercel
+node_modules/

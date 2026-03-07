@@ -7,9 +7,18 @@
         <h1 class="preview-title">Review the volume, then download it.</h1>
         <div class="preview-actions">
             <button type="button" class="btn btn-primary" id="download-pdf">Download PDF</button>
+            <a class="btn btn-secondary" id="download-video" href="{{ url_for('download_video') }}" style="display:none;">Download Video</a>
             <a class="btn btn-ghost" href="{{ url_for('import_screen') }}">Create another</a>
         </div>
         <p class="preview-status" id="preview-status">Loading your PDF preview…</p>
+
+        <div id="video-section" style="display:none; margin-top:2rem;">
+            <h2 class="preview-subtitle" style="font-family:var(--font-display);font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);margin-bottom:.75rem;">Video Reel</h2>
+            <video id="video-preview" controls playsinline
+                style="width:100%;max-width:360px;border-radius:8px;background:#000;">
+                <source src="{{ url_for('preview_video') }}" type="video/mp4">
+            </video>
+        </div>
     </div>
 
     <div class="preview-frame">
@@ -86,5 +95,15 @@
     });
 
     mountPreview();
+
+    // Check if video is available
+    fetch('{{ url_for("preview_video") }}', { method: 'HEAD' })
+        .then(resp => {
+            if (resp.ok) {
+                document.getElementById('video-section').style.display = '';
+                document.getElementById('download-video').style.display = '';
+            }
+        })
+        .catch(() => {});
 </script>
 {% endblock %}
