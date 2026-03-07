@@ -11,6 +11,6 @@ requests
 tqdm
 pypdf
 reportlab
-anthropic
+openai
 pytest
 cryptography

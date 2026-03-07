@@ -77,7 +77,7 @@ COLORS = {
 }
 
 # AI / Vision analysis
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 VISION_ANALYSIS = WORKSPACE / "vision_analysis.json"
 NARRATIVE_CACHE = WORKSPACE / "narrative_cache.json"
 

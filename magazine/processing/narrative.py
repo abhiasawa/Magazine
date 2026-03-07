@@ -1,4 +1,4 @@
-"""Narrative arc generation for the magazine using Claude API."""
+"""Narrative arc generation for the magazine using OpenAI API."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import click
 
-from magazine.config import ANTHROPIC_API_KEY, NARRATIVE_CACHE
+from magazine.config import OPENAI_API_KEY, NARRATIVE_CACHE
 from magazine.layout.engine import PageSpec
 from magazine.processing.vision import PhotoAnalysis
 from magazine.services.state import load_json, save_json
@@ -134,11 +134,11 @@ def generate_narrative(
     Returns list of NarrativeSection objects. Gracefully returns empty list
     if AI is unavailable.
     """
-    if not ANTHROPIC_API_KEY:
+    if not OPENAI_API_KEY:
         return []
 
     try:
-        import anthropic
+        from openai import OpenAI
     except ImportError:
         return []
 
@@ -152,15 +152,15 @@ def generate_narrative(
     click.echo(f"Generating narrative for {len(page_descs)} pages...")
 
     try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o",
             max_tokens=4096,
             messages=[
                 {"role": "user", "content": f"{context}\n\n{NARRATIVE_PROMPT}"},
             ],
         )
-        raw_text = response.content[0].text.strip()
+        raw_text = response.choices[0].message.content.strip()
         if raw_text.startswith("```"):
             raw_text = raw_text.split("\n", 1)[1] if "\n" in raw_text else raw_text[3:]
             if raw_text.endswith("```"):

@@ -1,4 +1,4 @@
-"""AI vision analysis of photos using Claude API."""
+"""AI vision analysis of photos using OpenAI GPT-4o API."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import click
 from tqdm import tqdm
 
 from magazine.config import (
-    ANTHROPIC_API_KEY,
+    OPENAI_API_KEY,
     VISION_ANALYSIS,
     THUMBNAILS_DIR,
 )
@@ -78,7 +78,7 @@ def _photo_to_base64(photo: dict) -> str | None:
 
 
 def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
-    """Send a batch of photos to Claude for vision analysis."""
+    """Send a batch of photos to GPT-4o for vision analysis."""
     content = []
     photo_ids = []
     for photo in photos:
@@ -92,11 +92,10 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
             "text": f"Photo ID: {pid} (#{len(photo_ids)} of batch)",
         })
         content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/jpeg",
-                "data": b64,
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{b64}",
+                "detail": "low",
             },
         })
 
@@ -105,13 +104,13 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
 
     content.append({"type": "text", "text": ANALYSIS_PROMPT})
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = client.chat.completions.create(
+        model="gpt-4o",
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
 
-    raw_text = response.content[0].text.strip()
+    raw_text = response.choices[0].message.content.strip()
     # Strip markdown fences if present
     if raw_text.startswith("```"):
         raw_text = raw_text.split("\n", 1)[1] if "\n" in raw_text else raw_text[3:]
@@ -148,14 +147,14 @@ def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAn
     Results are cached — photos already analyzed are skipped.
     Gracefully returns empty dict if API key is missing or calls fail.
     """
-    if not ANTHROPIC_API_KEY:
-        click.echo("No ANTHROPIC_API_KEY set — skipping AI vision analysis.")
+    if not OPENAI_API_KEY:
+        click.echo("No OPENAI_API_KEY set — skipping AI vision analysis.")
         return {}
 
     try:
-        import anthropic
+        from openai import OpenAI
     except ImportError:
-        click.echo("anthropic package not installed — skipping vision analysis.")
+        click.echo("openai package not installed — skipping vision analysis.")
         return {}
 
     cache = _load_cache()
@@ -165,8 +164,8 @@ def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAn
         click.echo(f"Vision analysis cached for all {len(photos)} photos.")
         return {pid: PhotoAnalysis(**data) for pid, data in cache.items() if pid in {p["id"] for p in photos}}
 
-    click.echo(f"Analyzing {len(uncached)} photos with Claude vision ({len(photos) - len(uncached)} cached)...")
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    click.echo(f"Analyzing {len(uncached)} photos with GPT-4o vision ({len(photos) - len(uncached)} cached)...")
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     batches = [uncached[i:i + batch_size] for i in range(0, len(uncached), batch_size)]
     all_analyses: list[PhotoAnalysis] = []
