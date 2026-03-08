@@ -9,6 +9,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import urlparse, unquote
+
+import click
 
 from magazine.config import OUTPUT_DIR, ORIGINALS_DIR, THUMBNAILS_DIR, VIDEO_STATUS
 from magazine.layout.engine import PageSpec
@@ -32,6 +35,15 @@ CLOSING_SECONDS = 4
 MAX_SCENES = 15
 
 
+def _resolve_path(val: str) -> Path | None:
+    """Convert a plain path or file:// URI to a Path."""
+    if not val:
+        return None
+    if val.startswith("file://"):
+        return Path(unquote(urlparse(val).path))
+    return Path(val)
+
+
 def _select_best_photos(
     pages: list[PageSpec],
     analyses: dict[str, PhotoAnalysis],
@@ -42,7 +54,6 @@ def _select_best_photos(
         if p.template not in ("cover", "back_cover", "dedication") and p.photos
     ]
 
-    # Score each page by its photos' emotional weight
     def page_score(page: PageSpec) -> float:
         weights = []
         for photo in page.photos:
@@ -53,27 +64,37 @@ def _select_best_photos(
                 weights.append(3)
         return sum(weights) / len(weights) if weights else 0
 
-    # Sort by score but preserve rough chronological order by using a weighted sort
     scored = [(i, p, page_score(p)) for i, p in enumerate(body_pages)]
-    # Take top MAX_SCENES by score, then re-sort by original order
     scored.sort(key=lambda x: x[2], reverse=True)
     selected = scored[:MAX_SCENES]
     selected.sort(key=lambda x: x[0])
+    click.echo(f"Video: selected {len(selected)} scenes from {len(body_pages)} body pages.")
     return [s[1] for s in selected]
 
 
 def _copy_photo_to_public(photo: dict) -> str | None:
     """Copy a photo to the Remotion public dir, return the relative src path."""
     pid = photo["id"]
-    # Prefer print-ready, then original, then thumbnail
-    for key in ("print_ready", "original", "thumbnail"):
+    # Prefer print_path (highest quality), then original, then thumbnail
+    for key in ("print_path", "original", "thumbnail"):
         val = photo.get(key, "")
-        if val:
-            src_path = Path(val)
-            if src_path.exists():
-                dest = PHOTOS_DIR / f"{pid}{src_path.suffix}"
-                shutil.copy2(src_path, dest)
-                return f"photos/{pid}{src_path.suffix}"
+        if not val:
+            continue
+        src_path = _resolve_path(val)
+        if src_path and src_path.exists():
+            dest = PHOTOS_DIR / f"{pid}{src_path.suffix}"
+            shutil.copy2(src_path, dest)
+            return f"photos/{pid}{src_path.suffix}"
+
+    # Last resort: check originals dir by ID
+    for ext in (".jpg", ".jpeg", ".png"):
+        fallback = ORIGINALS_DIR / f"{pid}{ext}"
+        if fallback.exists():
+            dest = PHOTOS_DIR / f"{pid}{ext}"
+            shutil.copy2(fallback, dest)
+            return f"photos/{pid}{ext}"
+
+    click.echo(f"Video: could not find photo file for {pid} (keys: {list(photo.keys())})")
     return None
 
 
@@ -101,17 +122,19 @@ def _build_video_data(
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
     selected_pages = _select_best_photos(pages, analyses)
-    logger.info("Video: %d body pages selected from %d total", len(selected_pages), len(pages))
+    click.echo(f"Video: building data for {len(selected_pages)} pages ({len(pages)} total).")
     scenes = []
+    copied_count = 0
+    failed_count = 0
 
     for page in selected_pages:
         photos_data = []
         for photo in page.photos:
             src = _copy_photo_to_public(photo)
             if not src:
-                logger.warning("Video: could not find file for photo %s (keys: %s)",
-                               photo.get("id"), list(photo.keys()))
+                failed_count += 1
                 continue
+            copied_count += 1
             media_type = photo.get("media_type", "photo")
             pd = {
                 "id": photo["id"],
@@ -161,6 +184,8 @@ def _build_video_data(
             if not dest.exists():
                 shutil.copy2(mp3, dest)
 
+    click.echo(f"Video: {copied_count} photos copied, {failed_count} failed, {len(scenes)} scenes built.")
+
     # Calculate total duration
     scenes_duration = sum(s["durationFrames"] for s in scenes)
     total = OPENING_SECONDS * FPS + scenes_duration + CLOSING_SECONDS * FPS
@@ -188,22 +213,25 @@ def render_video(
     if output_path is None:
         output_path = OUTPUT_DIR / "magazine.mp4"
 
+    click.echo("Video: starting render pipeline...")
+
     # Check if npx is available
     npx = shutil.which("npx")
     if not npx:
-        logger.warning("npx not found — cannot render video")
+        click.echo("Video: npx not found — cannot render video.")
+        save_json(VIDEO_STATUS, {"status": "failed", "error": "npx not found — install Node.js"})
         return None
 
     # Build data JSON
     data = _build_video_data(pages, analyses, title, subtitle)
     if not data["scenes"]:
-        logger.warning("No scenes to render — skipping video (check photo file paths)")
+        click.echo("Video: no scenes built — skipping render. Check photo file paths.")
         save_json(VIDEO_STATUS, {"status": "failed", "error": "No photo files found for video scenes"})
         return None
 
     total_frames = data["totalDurationFrames"]
     DATA_JSON.write_text(json.dumps(data, indent=2))
-    logger.info("Video data written: %d scenes, %d total frames", len(data["scenes"]), total_frames)
+    click.echo(f"Video: data.json written — {len(data['scenes'])} scenes, {total_frames} frames.")
 
     # Estimate render time: ~3 frames/sec on average hardware
     estimated_seconds = max(10, int(total_frames / 3))
@@ -271,15 +299,21 @@ def render_video(
 
         if proc.returncode != 0:
             full_stderr = stderr_tail or ""
-            error_msg = f"Remotion exit code {proc.returncode}"
+            # Extract the most relevant error lines
+            error_lines = [l for l in full_stderr.splitlines() if l.strip()][-10:]
+            error_detail = "\n".join(error_lines)
+            error_msg = f"Remotion exit code {proc.returncode}: {error_lines[-1] if error_lines else 'unknown'}"
+            click.echo(f"Video: render failed (exit {proc.returncode}):\n{error_detail}")
             logger.error("Remotion render failed (exit %d):\n%s", proc.returncode, full_stderr[-2000:])
             save_json(VIDEO_STATUS, {"status": "failed", "error": error_msg})
             return None
 
         if output_path.exists():
-            logger.info("Video rendered: %s", output_path)
+            size_mb = output_path.stat().st_size / (1024 * 1024)
+            click.echo(f"Video: rendered successfully — {size_mb:.1f} MB")
             return output_path
 
+        click.echo("Video: Remotion exited 0 but output file not found.")
         logger.error("Remotion exited 0 but output file not found: %s", output_path)
         return None
 

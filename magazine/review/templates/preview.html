@@ -92,15 +92,11 @@
         letter-spacing: .02em;
     }
 
-    /* Grid */
+    /* Grid — stacked layout so both PDF and video get full prominence */
     .preview-grid {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr;
+        display: flex;
+        flex-direction: column;
         gap: 2rem;
-        align-items: start;
-    }
-    @media (max-width: 800px) {
-        .preview-grid { grid-template-columns: 1fr; }
     }
 
     /* Cards */
@@ -142,10 +138,11 @@
     .card-actions {
         margin-top: 1rem;
         display: flex;
+        justify-content: center;
         gap: .75rem;
     }
     .card-actions .btn {
-        flex: 1;
+        min-width: 180px;
         text-align: center;
         text-decoration: none;
     }
@@ -173,12 +170,13 @@
     .video-frame {
         position: relative;
         width: 100%;
-        max-width: 280px;
+        max-width: 360px;
         margin: 0 auto;
         aspect-ratio: 9/16;
         background: #0a0a0a;
-        border-radius: 6px;
+        border-radius: 10px;
         overflow: hidden;
+        box-shadow: 0 4px 24px rgba(0,0,0,.4);
     }
     .video-frame video {
         width: 100%;

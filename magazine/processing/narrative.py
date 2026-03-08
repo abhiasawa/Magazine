@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass
 
 import click
@@ -44,31 +45,36 @@ MOOD_TO_DESIGN = {
     "dramatic": "intimate",
 }
 
-NARRATIVE_PROMPT = """\
+# System prompt — sets the role and rules for narrative generation.
+NARRATIVE_SYSTEM_PROMPT = """\
 You are a literary magazine editor crafting the narrative thread for a personal photo magazine.
-You are given a sequence of magazine pages, each with photo analysis data.
-
-Your task is to generate narrative text for EACH body page (not cover or back_cover) that weaves
-into a cohesive story arc. The magazine should read as a journey.
+You will receive page data with photo analysis. Your task: generate narrative text for each body page
+that weaves into a cohesive story arc. The magazine should read like a journey.
 
 Rules:
-- For single-photo pages: write ONE evocative sentence (8-15 words). Not a caption —
-  a literary line that brings the moment to life. It should feel like a line from a novel.
+- For single-photo pages (expected_type = "sentence"): write ONE evocative sentence (8-15 words).
+  Not a caption — a literary line that brings the moment to life, like a line from a novel.
   Examples: "The cobblestones remembered every footstep they had ever shared."
   "She turned, and the whole piazza held its breath."
-- For multi-photo pages (2+ photos): write ONE evocative word or short heading (1-3 words max).
+- For multi-photo pages (expected_type = "heading_word"): write ONE evocative word or short heading
+  (1-3 words max).
   Examples: "Wanderlust", "Golden Hour", "Belonging", "The In-Between", "Homeward"
 - Build a narrative arc: early pages = arrival/discovery, middle = immersion/connection,
-  final pages = reflection/gratitude
-- Match the emotional tone of the photos — don't put joyful text on contemplative images
-- Every line should feel distinct — no repetition of words or phrasing across pages
+  final pages = reflection/gratitude.
+- Match the emotional tone of the photos — don't put joyful text on contemplative images.
+- Every line should feel distinct — no repetition of words or phrasing across pages.
 
-Return a JSON array with one object per page (in order). Each object:
-- "page_index": integer (0-based index in the pages list provided)
-- "text": the narrative text (word or sentence)
-- "type": "heading_word" or "sentence"
+You MUST respond with a JSON object in this exact format:
+{
+  "sections": [
+    {"page_index": 0, "text": "narrative text here", "type": "sentence"},
+    {"page_index": 1, "text": "Wanderlust", "type": "heading_word"}
+  ]
+}
 
-Return ONLY the JSON array, no markdown fences.
+The "sections" array must have one entry per page provided, in order.
+Each entry must have: "page_index" (integer matching the input), "text" (the narrative),
+"type" (either "heading_word" or "sentence" matching the expected_type).
 """
 
 
@@ -136,69 +142,115 @@ def _build_page_descriptions(
     return descs, index_map
 
 
+def _call_openai_narrative(client, page_descs: list[dict], title: str, total_pages: int) -> dict:
+    """Make the OpenAI API call with retry. Returns parsed JSON dict."""
+    user_content = (
+        f"Magazine title: {title}\n"
+        f"Total pages in magazine: {total_pages}\n"
+        f"Pages to narrate ({len(page_descs)} pages):\n"
+        f"{json.dumps(page_descs, indent=2)}"
+    )
+
+    last_error = None
+    for attempt in range(2):
+        if attempt > 0:
+            click.echo(f"  Retrying narrative generation (attempt {attempt + 1})...")
+            time.sleep(2)
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                max_tokens=4096,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": NARRATIVE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            raw_text = response.choices[0].message.content.strip()
+            click.echo(f"  OpenAI response received ({len(raw_text)} chars).")
+            parsed = json.loads(raw_text)
+            return parsed
+        except json.JSONDecodeError as exc:
+            click.echo(f"  OpenAI returned invalid JSON: {exc}")
+            click.echo(f"  Raw response: {raw_text[:500]}")
+            last_error = exc
+        except Exception as exc:
+            click.echo(f"  OpenAI API error ({type(exc).__name__}): {exc}")
+            last_error = exc
+
+    raise last_error
+
+
 def generate_narrative(
     pages: list[PageSpec],
     analyses: dict[str, PhotoAnalysis],
     title: str = "",
 ) -> list[NarrativeSection]:
-    """Generate narrative text for all body pages.
+    """Generate narrative text for all body pages via OpenAI GPT-4o.
 
-    Returns list of NarrativeSection objects. Gracefully returns empty list
-    if AI is unavailable.
+    Raises an error if the API key is set but the call fails — no silent fallback.
     """
     if not OPENAI_API_KEY:
+        click.echo("ERROR: No OPENAI_API_KEY set. Narrative text will be empty.")
+        click.echo("  Set OPENAI_API_KEY in your .env file to enable narrative generation.")
         return []
 
     try:
         from openai import OpenAI
     except ImportError:
+        click.echo("ERROR: openai package not installed. Run: pip install openai")
         return []
 
     page_descs, index_map = _build_page_descriptions(pages, analyses)
     if not page_descs:
+        click.echo("No body pages found for narrative generation.")
         return []
 
-    prompt_data = json.dumps(page_descs, indent=2)
-    context = f"Magazine title: {title}\nTotal pages: {len(pages)}\n\nPages to narrate:\n{prompt_data}"
-
-    click.echo(f"Generating narrative for {len(page_descs)} pages...")
+    click.echo(f"Generating narrative for {len(page_descs)} pages via OpenAI GPT-4o...")
+    click.echo(f"  Photo analyses available: {len(analyses)} photos")
 
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            max_tokens=4096,
-            messages=[
-                {"role": "user", "content": f"{context}\n\n{NARRATIVE_PROMPT}"},
-            ],
-        )
-        raw_text = response.choices[0].message.content.strip()
-        if raw_text.startswith("```"):
-            raw_text = raw_text.split("\n", 1)[1] if "\n" in raw_text else raw_text[3:]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
-
-        results = json.loads(raw_text)
+        parsed = _call_openai_narrative(client, page_descs, title, len(pages))
     except Exception as exc:
-        logger.warning("Narrative generation failed: %s", exc)
-        click.echo(f"Warning: Narrative generation failed: {exc}")
+        click.echo(f"NARRATIVE GENERATION FAILED: {type(exc).__name__}: {exc}")
+        logger.error("Narrative generation failed after retries: %s", exc, exc_info=True)
+        return []
+
+    # Extract sections from the response — supports both {"sections": [...]} and bare [...]
+    if isinstance(parsed, dict):
+        results = parsed.get("sections", parsed.get("data", []))
+        if isinstance(results, dict):
+            results = list(results.values())
+    elif isinstance(parsed, list):
+        results = parsed
+    else:
+        click.echo(f"Unexpected response structure: {type(parsed)}")
+        return []
+
+    if not results:
+        click.echo("WARNING: OpenAI returned empty sections array.")
         return []
 
     sections = []
     for item in results:
+        if not isinstance(item, dict):
+            continue
         seq_idx = item.get("page_index", 0)
-        # Map the sequential index back to the absolute page index
+        text = item.get("text", "").strip()
+        if not text:
+            continue
         if 0 <= seq_idx < len(index_map):
             abs_idx = index_map[seq_idx]
         else:
             abs_idx = seq_idx
         sections.append(NarrativeSection(
             page_index=abs_idx,
-            text=item.get("text", ""),
+            text=text,
             narrative_type=item.get("type", "sentence"),
         ))
 
-    click.echo(f"Narrative generated: {len(sections)} sections assigned")
+    click.echo(f"Narrative generated: {len(sections)} sections from OpenAI.")
     return sections
 
 
@@ -208,20 +260,27 @@ def assign_narrative_to_pages(
     title: str = "",
 ):
     """Generate narrative and assign text + design hints to each PageSpec in-place."""
+    click.echo(f"Assigning narrative to {len(pages)} pages ({len(analyses)} photo analyses)...")
+
     # Assign palette hints from photo mood (even without narrative text)
+    palette_count = 0
     for page in pages:
         if page.template in ("cover", "back_cover"):
             continue
         if page.photos:
-            # Use the first photo's mood to drive design
             pid = page.photos[0]["id"]
             analysis = analyses.get(pid)
             if analysis:
                 page.palette_hint = MOOD_TO_PALETTE.get(analysis.mood, "warm_gold")
                 page.design_mood = MOOD_TO_DESIGN.get(analysis.mood, "")
+                palette_count += 1
+
+    click.echo(f"Palette hints assigned to {palette_count} pages.")
 
     # Generate narrative text
     sections = generate_narrative(pages, analyses, title=title)
+
+    assigned = 0
     for section in sections:
         if 0 <= section.page_index < len(pages):
             page = pages[section.page_index]
@@ -229,3 +288,6 @@ def assign_narrative_to_pages(
                 "text": section.text,
                 "type": section.narrative_type,
             }
+            assigned += 1
+
+    click.echo(f"Narrative text assigned to {assigned}/{len(sections)} pages.")

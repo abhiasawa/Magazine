@@ -389,6 +389,13 @@
         startPolling();
     });
 
+    function popupFeatures() {
+        const w = 620, h = 700;
+        const left = Math.round(screen.width / 2 - w / 2);
+        const top = Math.round(screen.height / 2 - h / 2);
+        return `popup=yes,width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`;
+    }
+
     if (googleStart) {
         googleStart.addEventListener('click', async () => {
             saveSession(null);
@@ -412,7 +419,7 @@
                     selectedTotal: 0,
                 });
                 renderSession(loadSession());
-                pickerPopup = window.open(data.picker_uri, 'magazine-google-picker', 'width=980,height=760');
+                pickerPopup = window.open(data.picker_uri, 'magazine-google-picker', popupFeatures());
                 if (!pickerPopup) {
                     renderSession({
                         status: 'error',
@@ -437,7 +444,7 @@
                 });
                 return;
             }
-            pickerPopup = window.open(data.auth_url, 'magazine-google-picker', 'width=980,height=760');
+            pickerPopup = window.open(data.auth_url, 'magazine-google-picker', popupFeatures());
             if (!pickerPopup) {
                 renderSession({
                     status: 'error',

@@ -742,40 +742,15 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         gap = 4 * mm
         left_w = W * 0.6
         right_w = W - left_w - gap
-        top_h = H * 0.62
-        bot_h = H - top_h - gap
+        # Photo 0: large left panel (full height)
         if len(page.photos) >= 1:
-            _draw_bleed_photo(page.photos[0], 0, H - top_h, left_w, top_h, crop_tolerance=0.18, bg=pal["smoke"])
+            _draw_bleed_photo(page.photos[0], 0, 0, left_w, H, crop_tolerance=0.18, bg=pal["smoke"])
+        # Photos 1 & 2: right column, split vertically
         for i, photo in enumerate(page.photos[1:3]):
             x = left_w + gap
             y = H - (i + 1) * ((H - gap) / 2)
             _draw_bleed_photo(photo, x, y, right_w, (H - gap) / 2, crop_tolerance=0.16, bg=pal["smoke"])
-        if len(page.photos) >= 1:
-            if len(page.photos) >= 2:
-                _draw_shadowed_frame(
-                    page.photos[1],
-                    10 * mm,
-                    8 * mm,
-                    left_w * 0.38,
-                    bot_h - 12 * mm,
-                    matte=2.2 * mm,
-                    shadow=2.4 * mm,
-                    panel=pal["panel"],
-                    crop_tolerance=0.1,
-                )
-            if len(page.photos) >= 3:
-                _draw_polygon_photo(
-                    page.photos[2],
-                    [
-                        (left_w * 0.42 + 8 * mm, 0),
-                        (left_w - 6 * mm, 0),
-                        (left_w - 18 * mm, bot_h),
-                        (left_w * 0.42 + 18 * mm, bot_h),
-                    ],
-                    crop_tolerance=0.12,
-                    bg=pal["smoke"],
-                )
-        _draw_gutter(left_w, H - top_h, gap, top_h, fill=pal.get("panel", ivory))
+        _draw_gutter(left_w, 0, gap, H, fill=pal.get("panel", ivory))
         _draw_gutter(left_w + gap, H / 2 - gap / 2, right_w, gap, fill=pal.get("panel", ivory))
         # Vertical heading in the gutter
         _draw_vertical_heading(page, left_w + gap / 2 - 1, H * 0.35, H * 0.3)
