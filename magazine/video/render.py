@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import shutil
 import subprocess
@@ -25,9 +26,15 @@ from magazine.services.state import save_json
 logger = logging.getLogger(__name__)
 
 VIDEO_DIR = Path(__file__).parent
-PUBLIC_DIR = VIDEO_DIR / "public"
-PHOTOS_DIR = PUBLIC_DIR / "photos"
 MUSIC_DIR = VIDEO_DIR / "music" / "tracks"
+
+# On Vercel, /var/task/ is read-only — use /tmp/ for writable scratch files
+_is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+if _is_vercel:
+    PUBLIC_DIR = Path("/tmp/magazine-video-public")
+else:
+    PUBLIC_DIR = VIDEO_DIR / "public"
+PHOTOS_DIR = PUBLIC_DIR / "photos"
 DATA_JSON = PUBLIC_DIR / "data.json"
 
 FPS = 15
