@@ -123,7 +123,7 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
 
     response = client.chat.completions.create(
         model="gpt-5.4",
-        max_tokens=4096,
+        max_completion_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
 

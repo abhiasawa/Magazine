@@ -485,6 +485,12 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
 
     # ── Narrative text helpers ──
 
+    # Consistent text strip dimensions (used by every single-photo template)
+    TEXT_STRIP_H = 26 * mm   # height of bottom text zone
+    TEXT_STRIP_X = 24 * mm   # left margin for sentence text
+    TEXT_STRIP_Y = 14 * mm   # baseline of first text line (from page bottom)
+    TEXT_STRIP_W = W * 0.52  # reading width (~155mm, left-aligned)
+
     def _draw_gradient_scrim(x, y, w, h, steps=12):
         """Draw a bottom-to-top gradient scrim for text legibility over photos."""
         step_h = h / steps
@@ -493,8 +499,46 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             c.setFillColor(Color(0, 0, 0, alpha=alpha))
             c.rect(x, y + i * step_h, w, step_h + 0.5, fill=1, stroke=0)
 
+    def _draw_text_strip(page, has_photo_behind=False):
+        """Render narrative sentence in a consistent bottom-left strip.
+
+        Every single-photo template calls this so the reader always
+        finds text in the same place: bottom-left of the page.
+
+        When has_photo_behind=True, a gradient scrim is drawn first
+        and text is rendered in white. Otherwise text uses the palette
+        text color on the existing background.
+        """
+        if not page.quote or page.quote.get("type") != "sentence":
+            return
+        text = page.quote.get("text", "")
+        if not text:
+            return
+        pal = _pal(page)
+
+        if has_photo_behind:
+            # Gradient scrim across bottom for legibility over photos
+            _draw_gradient_scrim(0, 0, W * 0.60, TEXT_STRIP_H + 10 * mm)
+            text_color = Color(1, 1, 1, alpha=0.92)
+        else:
+            text_color = Color(
+                pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.88,
+            )
+
+        _draw_text_block(
+            text, TEXT_STRIP_X, TEXT_STRIP_Y,
+            font=serif_font, size=13,
+            color=text_color,
+            max_width=TEXT_STRIP_W,
+            leading_mult=1.7,
+        )
+
     def _draw_narrative_sentence(page, x, y, max_width):
-        """Render a narrative sentence on a page if present."""
+        """Render a narrative sentence on a page if present.
+
+        DEPRECATED — kept for any templates that need custom placement.
+        Prefer _draw_text_strip() for consistent bottom-left positioning.
+        """
         if not page.quote or page.quote.get("type") != "sentence":
             return
         text = page.quote.get("text", "")
@@ -659,25 +703,23 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         _editorial_bg(light=True, page=page)
         if page.photos:
             pal = _pal(page)
-            _draw_panel_photo(page.photos[0], 44 * mm, 26 * mm, W - 88 * mm, H - 52 * mm, matte=5 * mm, panel=pal["panel"])
-        # Narrative sentence below the polaroid frame
-        _draw_narrative_sentence(page, 44 * mm, 18 * mm, max_width=W - 88 * mm)
+            _draw_panel_photo(page.photos[0], 44 * mm, TEXT_STRIP_H + 4 * mm, W - 88 * mm, H - TEXT_STRIP_H - 28 * mm, matte=5 * mm, panel=pal["panel"])
+        # Consistent bottom-left text strip
+        _draw_text_strip(page, has_photo_behind=False)
 
     def _full_bleed(page):
         pal = _pal(page)
         _fill_page(pal["bg"])
         if page.photos:
             _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.22, bg=pal["surface"])
-            # Gradient scrim for text legibility at bottom
-            _draw_gradient_scrim(0, 0, W * 0.55, 42 * mm)
             # Subtle left edge darkening
             c.setFillColor(Color(0, 0, 0, alpha=0.14))
             c.rect(0, 0, 14 * mm, H, fill=1, stroke=0)
             accent = pal["accent"]
             _draw_accent_rule(10 * mm, H - 18 * mm, 42 * mm, horizontal=False, alpha=0.30, color=accent)
             _draw_accent_rule(W - 52 * mm, 16 * mm, 34 * mm, horizontal=True, alpha=0.30, color=accent)
-        # Narrative sentence over the scrim
-        _draw_narrative_sentence(page, 22 * mm, 24 * mm, max_width=W * 0.42)
+        # Consistent bottom-left text strip (with scrim over photo)
+        _draw_text_strip(page, has_photo_behind=True)
 
     def _cinematic(page):
         pal = _pal(page)
@@ -686,8 +728,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_polygon_photo(
                 page.photos[0],
                 [
-                    (0, H * 0.08),
-                    (W * 0.78, H * 0.08),
+                    (0, TEXT_STRIP_H),
+                    (W * 0.78, TEXT_STRIP_H),
                     (W, H * 0.36),
                     (W, H),
                     (W * 0.18, H),
@@ -698,18 +740,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             )
             accent = pal["accent"]
             _draw_split_separator(W * 0.74, H * 0.16, 18 * mm, 48 * mm, fill=pal["panel"])
-            _draw_accent_rule(18 * mm, 16 * mm, 32 * mm, horizontal=True, alpha=0.28, color=accent)
-        # Narrative sentence in top-right dead space
-        if page.quote and page.quote.get("type") == "sentence":
-            text = page.quote.get("text", "")
-            if text:
-                _draw_text_block(
-                    text, W * 0.62, H * 0.04 + 8,
-                    font=serif_font, size=13,
-                    color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.72),
-                    max_width=W * 0.34,
-                    leading_mult=1.6,
-                )
+        # Consistent bottom-left text strip (below the polygon photo)
+        _draw_text_strip(page, has_photo_behind=False)
 
     def _two_photos(page):
         pal = _pal(page)
@@ -800,38 +832,29 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_polygon_photo(
                 page.photos[0],
                 [
-                    (0, 0),
-                    (img_w, 0),
+                    (0, TEXT_STRIP_H),
+                    (img_w, TEXT_STRIP_H),
                     (img_w - 18 * mm, H),
                     (0, H),
                 ],
                 crop_tolerance=0.2,
                 bg=pal["surface"],
             )
-        # Right sidebar — narrative text replaces the old ghost rectangles
+        # Right sidebar — decorative accent only (text moved to bottom strip)
         sidebar_x = img_w + 8 * mm
-        sidebar_w = W - img_w - 16 * mm
         c.setFillColor(Color(1, 1, 1, alpha=0.04))
-        c.rect(img_w + 6 * mm, 0, W - img_w - 6 * mm, H, fill=1, stroke=0)
+        c.rect(img_w + 6 * mm, TEXT_STRIP_H, W - img_w - 6 * mm, H - TEXT_STRIP_H, fill=1, stroke=0)
         accent = pal["accent"]
         c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.22))
-        c.rect(img_w + 6 * mm, 0, 2 * mm, H, fill=1, stroke=0)
-        # Narrative sentence in sidebar with pull-quote mark
+        c.rect(img_w + 6 * mm, TEXT_STRIP_H, 2 * mm, H - TEXT_STRIP_H, fill=1, stroke=0)
+        # Pull-quote mark as decorative element in sidebar
         if page.quote and page.quote.get("type") == "sentence":
-            text = page.quote.get("text", "")
-            if text:
-                _draw_pull_quote_mark(sidebar_x + 2 * mm, H * 0.58, pal)
-                _draw_text_block(
-                    text, sidebar_x + 4 * mm, H * 0.52,
-                    font=serif_font, size=15,
-                    color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.82),
-                    max_width=sidebar_w - 8 * mm,
-                    leading_mult=1.8,
-                )
-                _draw_accent_rule(sidebar_x + 6 * mm, H * 0.38, sidebar_w * 0.5, horizontal=True, alpha=0.24, color=accent)
+            _draw_pull_quote_mark(sidebar_x + 2 * mm, H * 0.58, pal)
+            _draw_accent_rule(sidebar_x + 6 * mm, H * 0.44, 28 * mm, horizontal=True, alpha=0.24, color=accent)
         else:
-            # Fallback: subtle accent rule when no narrative text
             _draw_accent_rule(sidebar_x + 6 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24, color=accent)
+        # Consistent bottom-left text strip
+        _draw_text_strip(page, has_photo_behind=False)
 
     def _mosaic(page):
         pal = _pal(page)
