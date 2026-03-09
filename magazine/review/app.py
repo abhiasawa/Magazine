@@ -7,7 +7,6 @@ import hashlib
 import logging
 import os
 import shutil
-import threading
 import uuid
 from pathlib import Path
 
@@ -22,7 +21,6 @@ from magazine.config import (
     ORIGINALS_DIR,
     OUTPUT_DIR,
     THUMBNAILS_DIR,
-    VIDEO_STATUS,
     WORKSPACE,
 )
 from magazine.services.state import save_json, load_json
@@ -145,21 +143,6 @@ def _download_and_import_google_selection(token: str, session_id: str) -> dict:
         "imported": total_imported,
         "skipped": total_skipped,
     }
-
-
-def _render_video_background(pages_spec, photo_analyses, title, subtitle):
-    """Run video render in a background thread."""
-    try:
-        from magazine.video.render import render_video
-
-        result = render_video(pages_spec, photo_analyses, title=title, subtitle=subtitle)
-        if result:
-            save_json(VIDEO_STATUS, {"status": "ready"})
-        else:
-            save_json(VIDEO_STATUS, {"status": "failed", "error": "Render returned no output"})
-    except Exception as exc:
-        logger.warning("Video render failed: %s", exc)
-        save_json(VIDEO_STATUS, {"status": "failed", "error": str(exc)})
 
 
 def create_app() -> Flask:
@@ -430,19 +413,6 @@ def create_app() -> Flask:
 
             output_path = generate_pdf(pages_spec, style=style)
 
-            # Render video: sync on Vercel (no daemon threads), async locally
-            save_json(VIDEO_STATUS, {"status": "rendering"})
-            is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
-            if is_vercel:
-                _render_video_background(pages_spec, photo_analyses, title, subtitle)
-            else:
-                video_thread = threading.Thread(
-                    target=_render_video_background,
-                    args=(pages_spec, photo_analyses, title, subtitle),
-                    daemon=True,
-                )
-                video_thread.start()
-
             logger.info(
                 "magazine_generated selected=%s imported=%s skipped=%s pages=%s",
                 import_result["selected_total"],
@@ -460,30 +430,6 @@ def create_app() -> Flask:
             logger.exception("magazine_generate_failed")
             flash(f"Error generating magazine: {exc}", "error")
             return redirect(url_for("import_screen"))
-
-    @app.route("/api/video/status")
-    def api_video_status():
-        video_path = OUTPUT_DIR / "magazine.mp4"
-        status_data = load_json(VIDEO_STATUS, {"status": "idle"})
-        if video_path.exists() and status_data.get("status") != "rendering":
-            status_data["status"] = "ready"
-        return jsonify({"success": True, **status_data})
-
-    @app.route("/preview/video")
-    def preview_video():
-        video_path = OUTPUT_DIR / "magazine.mp4"
-        if not video_path.exists():
-            flash("Generate a magazine first to preview the video.", "error")
-            return redirect(url_for("import_screen"))
-        return send_file(video_path, mimetype="video/mp4", as_attachment=False, download_name="Maison-Folio.mp4")
-
-    @app.route("/preview/video/download")
-    def download_video():
-        video_path = OUTPUT_DIR / "magazine.mp4"
-        if not video_path.exists():
-            flash("Generate a magazine first to download the video.", "error")
-            return redirect(url_for("import_screen"))
-        return send_file(video_path, mimetype="video/mp4", as_attachment=True, download_name="Maison-Folio.mp4")
 
     @app.route("/api/debug/logs")
     def api_debug_logs():

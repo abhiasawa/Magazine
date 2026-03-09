@@ -48,9 +48,9 @@ Each object must have these fields:
 - "color_temperature": one of "warm", "cool", "neutral"
 - "dominant_colors": array of 3 hex color strings from the image
 - "people_description": what people are doing (empty string if no people)
-- "key_elements": array of 3-5 notable visual elements
+- "key_elements": array of 3-5 specific, evocative details that make this photo unique (NOT generic words like "color" or "texture" — instead: "weathered wooden doorway", "child's red balloon against gray sky", "steam rising from morning coffee")
 - "emotional_weight": integer 1-5, how emotionally significant this moment feels
-- "narrative_potential": one sentence about what makes this photo meaningful
+- "narrative_potential": a poetic one-sentence observation about the emotional truth of this moment (not a description of what's visible — what does this photo FEEL like?)
 
 Return ONLY the JSON array, no markdown fences or extra text.
 """

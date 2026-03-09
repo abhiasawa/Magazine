@@ -246,26 +246,24 @@ def build_layout(
     body_pages = max(0, target_pages - 3)
 
     template_cycle = [
-        "full_bleed",
-        "cinematic",
-        "editorial",
-        "two_photo",
-        "mosaic",
-        "three_photo",
-        "editorial",
-        "collage2",
-        "full_bleed",
-        "two_photo",
-        "cinematic",
-        "collage4",
-        "editorial",
+        "full_bleed",      # 1 photo — hero immersion
+        "cinematic",       # 1 photo — dramatic crop
+        "editorial",       # 1 photo — dark sidebar
+        "two_photo",       # 2 photos — first multi after 3 singles
+        "full_bleed",      # 1 photo — breathing room
+        "editorial",       # 1 photo
+        "three_photo",     # 3 photos — second multi
+        "cinematic",       # 1 photo — breathing room
+        "full_bleed",      # 1 photo — hero
+        "big_polaroid",    # 1 photo — intimate framing
+        "editorial",       # 1 photo
+        "mosaic",          # 4 photos — one dense page per cycle
     ]
 
     photo_requirements = {
         "full_bleed": 1,
         "collage2": 2,
         "collage3": 3,
-        "collage4": 4,
         "mosaic": 4,
         "two_photo": 2,
         "three_photo": 3,

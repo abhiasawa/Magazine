@@ -28,36 +28,6 @@
                 <button type="button" class="btn btn-primary" id="download-pdf" disabled>Download PDF</button>
             </div>
         </div>
-
-        <!-- Video Column -->
-        <div class="preview-card">
-            <div class="card-label">
-                <span class="card-dot card-dot-video"></span>
-                <span>Social Video Reel</span>
-                <span class="card-badge" id="video-badge">Rendering</span>
-            </div>
-            <div class="video-frame" id="video-frame">
-                <video id="video-preview" controls playsinline>
-                    <source src="{{ url_for('preview_video') }}" type="video/mp4">
-                </video>
-                <div class="preview-overlay" id="video-overlay">
-                    <div class="spinner" id="video-spinner"></div>
-                    <div class="video-progress-wrap" id="video-progress-wrap">
-                        <div class="video-progress-track">
-                            <div class="video-progress-fill" id="video-progress-fill"></div>
-                        </div>
-                        <div class="video-progress-meta">
-                            <span class="video-progress-pct" id="video-progress-pct">0%</span>
-                            <span class="video-progress-eta" id="video-progress-eta"></span>
-                        </div>
-                    </div>
-                    <span class="overlay-text" id="video-status-text">Rendering video&hellip;</span>
-                </div>
-            </div>
-            <div class="card-actions">
-                <a class="btn btn-primary" id="download-video" href="{{ url_for('download_video') }}" disabled>Download Video</a>
-            </div>
-        </div>
     </div>
 
     <div class="preview-footer">
@@ -67,7 +37,7 @@
 
 <style>
     .preview-shell {
-        max-width: 1100px;
+        max-width: 900px;
         margin: 0 auto;
         padding: 2rem 1.5rem 4rem;
     }
@@ -92,7 +62,6 @@
         letter-spacing: .02em;
     }
 
-    /* Grid — stacked layout so both PDF and video get full prominence */
     .preview-grid {
         display: flex;
         flex-direction: column;
@@ -123,18 +92,6 @@
         border-radius: 50%;
     }
     .card-dot-pdf { background: #c7aa73; }
-    .card-dot-video { background: #9ba8b8; }
-    .card-badge {
-        margin-left: auto;
-        font-size: .65rem;
-        padding: .2rem .6rem;
-        border-radius: 100px;
-        background: rgba(155,168,184,.15);
-        color: #9ba8b8;
-        letter-spacing: .06em;
-    }
-    .card-badge.ready { background: rgba(120,180,120,.15); color: #8bc78b; }
-    .card-badge.failed { background: rgba(180,120,120,.15); color: #c78b8b; }
     .card-actions {
         margin-top: 1rem;
         display: flex;
@@ -166,25 +123,6 @@
         border: none;
     }
 
-    /* Video Preview */
-    .video-frame {
-        position: relative;
-        width: 100%;
-        max-width: 360px;
-        margin: 0 auto;
-        aspect-ratio: 9/16;
-        background: #0a0a0a;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 4px 24px rgba(0,0,0,.4);
-    }
-    .video-frame video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: none;
-    }
-
     /* Overlays */
     .preview-overlay {
         position: absolute;
@@ -207,48 +145,6 @@
         letter-spacing: .04em;
     }
 
-    /* Spinner */
-    .spinner {
-        width: 28px;
-        height: 28px;
-        border: 2px solid rgba(155,168,184,.2);
-        border-top-color: #9ba8b8;
-        border-radius: 50%;
-        animation: spin .8s linear infinite;
-        margin-bottom: .75rem;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Video progress bar */
-    .video-progress-wrap {
-        width: 80%;
-        max-width: 200px;
-        margin-bottom: .75rem;
-    }
-    .video-progress-track {
-        width: 100%;
-        height: 4px;
-        background: rgba(155,168,184,.15);
-        border-radius: 2px;
-        overflow: hidden;
-    }
-    .video-progress-fill {
-        height: 100%;
-        width: 0%;
-        background: #9ba8b8;
-        border-radius: 2px;
-        transition: width .6s ease;
-    }
-    .video-progress-meta {
-        display: flex;
-        justify-content: space-between;
-        margin-top: .35rem;
-        font-family: var(--font-sans, sans-serif);
-        font-size: .65rem;
-        color: var(--color-muted, #8b8478);
-        letter-spacing: .03em;
-    }
-
     /* Footer */
     .preview-footer {
         text-align: center;
@@ -265,11 +161,6 @@
     const pdfOverlay = document.getElementById('pdf-overlay');
     const pdfStatusText = document.getElementById('pdf-status-text');
     const downloadPdf = document.getElementById('download-pdf');
-    const videoPreview = document.getElementById('video-preview');
-    const videoOverlay = document.getElementById('video-overlay');
-    const videoStatusText = document.getElementById('video-status-text');
-    const videoBadge = document.getElementById('video-badge');
-    const downloadVideo = document.getElementById('download-video');
     let previewUrl = null;
 
     function openPreviewDb() {
@@ -319,70 +210,10 @@
         }
     }
 
-    // Video status polling
-    const videoProgressFill = document.getElementById('video-progress-fill');
-    const videoProgressPct = document.getElementById('video-progress-pct');
-    const videoProgressEta = document.getElementById('video-progress-eta');
-
-    function formatEta(seconds) {
-        if (seconds <= 0) return '';
-        if (seconds < 60) return `~${seconds}s left`;
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `~${m}m ${s}s left`;
-    }
-
-    async function checkVideoStatus() {
-        try {
-            const res = await fetch('/api/video/status');
-            const data = await res.json();
-
-            if (data.status === 'ready') {
-                videoProgressFill.style.width = '100%';
-                videoProgressPct.textContent = '100%';
-                videoProgressEta.textContent = '';
-                videoStatusText.textContent = 'Video ready';
-                setTimeout(() => {
-                    videoOverlay.classList.add('hidden');
-                    videoPreview.style.display = 'block';
-                    videoPreview.load();
-                }, 400);
-                videoBadge.textContent = 'Ready';
-                videoBadge.className = 'card-badge ready';
-                downloadVideo.removeAttribute('disabled');
-                return true;
-            } else if (data.status === 'failed') {
-                videoStatusText.textContent = data.error ? 'Video unavailable' : 'Video unavailable';
-                document.getElementById('video-spinner').style.display = 'none';
-                document.getElementById('video-progress-wrap').style.display = 'none';
-                videoBadge.textContent = 'Unavailable';
-                videoBadge.className = 'card-badge failed';
-                return true;
-            } else if (data.status === 'rendering') {
-                const pct = data.progress || 0;
-                videoProgressFill.style.width = pct + '%';
-                videoProgressPct.textContent = pct + '%';
-                videoProgressEta.textContent = formatEta(data.remaining || 0);
-                videoBadge.textContent = pct + '%';
-            }
-            return false; // still rendering
-        } catch {
-            return false;
-        }
-    }
-
-    async function pollVideoStatus() {
-        const done = await checkVideoStatus();
-        if (!done) {
-            setTimeout(pollVideoStatus, 2000);
-        }
-    }
-
     window.addEventListener('beforeunload', () => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
     });
 
     mountPdfPreview();
-    pollVideoStatus();
 </script>
 {% endblock %}

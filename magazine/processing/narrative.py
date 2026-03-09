@@ -70,11 +70,15 @@ that weaves into a cohesive story arc. The magazine should read like a journey.
 Rules:
 - For single-photo pages (expected_type = "sentence"): write ONE evocative sentence (8-15 words).
   Not a caption — a literary line that brings the moment to life, like a line from a novel.
-  Examples: "The cobblestones remembered every footstep they had ever shared."
-  "She turned, and the whole piazza held its breath."
+  Prefer metaphor over description. Don't say what's in the photo — say what the photo FEELS like.
+  Bad: "The sunset painted the sky in orange." Good: "The day exhaled, and everything turned to honey."
+  Bad: "Color filled the room." Good: "The walls hummed with a warmth no one could name."
+  Write as if for a Conde Nast Traveler feature or a published memoir.
 - For multi-photo pages (expected_type = "heading_word"): write ONE evocative word or short heading
-  (1-3 words max).
-  Examples: "Wanderlust", "Golden Hour", "Belonging", "The In-Between", "Homeward"
+  (1-3 words max). Avoid overused words (Beautiful, Amazing, Wonderful, Golden Hour, Wanderlust).
+  Prefer evocative, unusual words: "Heirloom", "Liminal", "Unmoored", "Gilded", "Aftermath"
+- NEVER use generic words: "color", "texture", "beauty", "moment", "memory", "journey".
+  Every word must be specific and surprising.
 - Build a narrative arc: early pages = arrival/discovery, middle = immersion/connection,
   final pages = reflection/gratitude.
 - Match the emotional tone of the photos — don't put joyful text on contemplative images.
@@ -130,11 +134,11 @@ _FALLBACK_SENTENCES = {
 }
 
 _FALLBACK_HEADINGS = [
-    "Golden Hour", "Wanderlust", "Belonging", "The In-Between",
-    "Homeward", "Daybreak", "Stillness", "Unwritten",
-    "Sanctuary", "Drift", "Reverie", "Interlude",
-    "Tender", "Radiance", "Passage", "Half-Light",
-    "Arrival", "Small Wonders", "Vivid", "Together",
+    "Heirloom", "Liminal", "Gilded", "Tidewater",
+    "Unwritten", "Sanctuary", "Reverie", "Half-Light",
+    "Tender", "Passage", "Interlude", "Aftermath",
+    "Meridian", "Driftwood", "Flourish", "Quietude",
+    "Daybreak", "Together", "Vivid", "Belonging",
 ]
 
 

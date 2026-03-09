@@ -486,9 +486,9 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
     # ── Narrative text helpers ──
 
     # Consistent text strip dimensions (used by every single-photo template)
-    TEXT_STRIP_H = 26 * mm   # height of bottom text zone
+    TEXT_STRIP_H = 32 * mm   # height of bottom text zone
     TEXT_STRIP_X = 24 * mm   # left margin for sentence text
-    TEXT_STRIP_Y = 14 * mm   # baseline of first text line (from page bottom)
+    TEXT_STRIP_Y = 18 * mm   # baseline of first text line (from page bottom)
     TEXT_STRIP_W = W * 0.52  # reading width (~155mm, left-aligned)
 
     def _draw_gradient_scrim(x, y, w, h, steps=12):
@@ -517,8 +517,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         pal = _pal(page)
 
         if has_photo_behind:
-            # Gradient scrim across bottom for legibility over photos
-            _draw_gradient_scrim(0, 0, W * 0.60, TEXT_STRIP_H + 10 * mm)
+            # Full-width gradient scrim for legibility over photos
+            _draw_gradient_scrim(0, 0, W, TEXT_STRIP_H + 16 * mm)
             text_color = Color(1, 1, 1, alpha=0.92)
         else:
             text_color = Color(
@@ -527,7 +527,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
 
         _draw_text_block(
             text, TEXT_STRIP_X, TEXT_STRIP_Y,
-            font=serif_font, size=13,
+            font=serif_font, size=14,
             color=text_color,
             max_width=TEXT_STRIP_W,
             leading_mult=1.7,
@@ -553,7 +553,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             leading_mult=1.7,
         )
 
-    def _draw_heading_word(page, x, y, max_width, size=36, align="center"):
+    def _draw_heading_word(page, x, y, max_width, size=40, align="center"):
         """Render an evocative heading word on a multi-photo page."""
         if not page.quote or page.quote.get("type") != "heading_word":
             return
@@ -607,60 +607,69 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         pal = _pal(page) if page else DEFAULT_PALETTE
         if light:
             _fill_page(pal.get("panel", ivory))
+            # Warm gradient wash from bottom-left to top-right
+            panel_c = pal.get("panel", ivory)
+            for i in range(16):
+                alpha = 0.06 * (1 - i / 16) ** 1.4
+                c.setFillColor(Color(0.72, 0.67, 0.58, alpha=alpha))
+                c.rect(0, i * (H / 16), W, H / 16 + 0.5, fill=1, stroke=0)
         else:
             _fill_page(pal["bg"])
         accent = pal["accent"]
         muted = pal["muted"]
         mood = page.design_mood if page else ""
         if mood == "intimate":
-            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.10))
+            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.16))
             c.circle(W * 0.15, H * 0.28, 44 * mm, fill=1, stroke=0)
         elif mood == "expansive":
-            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.08))
+            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.14))
             c.rect(W * 0.06, H * 0.48, W * 0.88, 1.5 * mm, fill=1, stroke=0)
         elif mood == "reflective":
-            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.08))
+            c.setFillColor(Color(muted.red, muted.green, muted.blue, alpha=0.14))
             c.circle(W * 0.82, H * 0.72, 32 * mm, fill=1, stroke=0)
             c.circle(W * 0.74, H * 0.62, 18 * mm, fill=1, stroke=0)
         else:
             base = sand if light else muted
-            c.setFillColor(Color(base.red, base.green, base.blue, alpha=0.18 if light else 0.10))
+            c.setFillColor(Color(base.red, base.green, base.blue, alpha=0.24 if light else 0.14))
             c.circle(W * 0.13, H * 0.84, 36 * mm, fill=1, stroke=0)
             c.circle(W * 0.88, H * 0.2, 26 * mm, fill=1, stroke=0)
-            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.12))
+            c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.18))
             c.rect(W * 0.68, H * 0.64, 52 * mm, 2 * mm, fill=1, stroke=0)
             c.rect(W * 0.08, H * 0.14, 34 * mm, 2 * mm, fill=1, stroke=0)
+        # Thin horizontal accent rule near bottom
+        _draw_accent_rule(W * 0.08, TEXT_STRIP_H + 8 * mm, W * 0.84, horizontal=True, alpha=0.10, color=accent)
 
     # ── Template renderers ──
 
     def _cover(page):
         _fill_page(obsidian)
-        c.setFillColor(Color(1, 1, 1, alpha=0.05))
-        c.circle(W * 0.86, H * 0.83, 42 * mm, fill=1, stroke=0)
-        c.circle(W * 0.77, H * 0.2, 22 * mm, fill=1, stroke=0)
-        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.18))
-        c.rect(18 * mm, 24 * mm, 62 * mm, 1.2 * mm, fill=1, stroke=0)
-        c.rect(W - 78 * mm, H - 28 * mm, 60 * mm, 1.2 * mm, fill=1, stroke=0)
 
-        c.setStrokeColor(Color(1, 1, 1, alpha=0.12))
-        c.setLineWidth(0.5)
-        c.rect(14 * mm, 14 * mm, W - 28 * mm, H - 28 * mm, fill=0, stroke=1)
+        # Hero photo on right side (55% of page width)
+        photo_x = W * 0.45
+        if page.photos:
+            _draw_bleed_photo(page.photos[0], photo_x, 0, W - photo_x, H, crop_tolerance=0.22, bg=coal)
+            # Dark overlay on photo for cohesion with left text area
+            c.setFillColor(Color(0, 0, 0, alpha=0.28))
+            c.rect(photo_x, 0, W - photo_x, H, fill=1, stroke=0)
+            # Gradient fade from left (obsidian) into photo
+            fade_w = 40 * mm
+            for i in range(20):
+                alpha = 1.0 - (i / 20) ** 1.6
+                c.setFillColor(Color(obsidian.red, obsidian.green, obsidian.blue, alpha=alpha))
+                c.rect(photo_x + i * (fade_w / 20), 0, fade_w / 20 + 0.5, H, fill=1, stroke=0)
 
+        # Subtle decorative elements
         c.setFillColor(Color(1, 1, 1, alpha=0.04))
-        c.rect(W * 0.58, 26 * mm, 78 * mm, H - 52 * mm, fill=1, stroke=0)
-        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.16))
-        c.rect(W * 0.58, 26 * mm, 2 * mm, H - 52 * mm, fill=1, stroke=0)
+        c.circle(W * 0.12, H * 0.82, 32 * mm, fill=1, stroke=0)
+        c.setFillColor(Color(gold.red, gold.green, gold.blue, alpha=0.14))
+        c.rect(18 * mm, 24 * mm, 52 * mm, 1.2 * mm, fill=1, stroke=0)
+
+        # Thin border inset
         c.setStrokeColor(Color(1, 1, 1, alpha=0.08))
         c.setLineWidth(0.4)
-        c.rect(W * 0.62, 34 * mm, 60 * mm, 44 * mm, fill=0, stroke=1)
-        c.rect(W * 0.67, 86 * mm, 42 * mm, 30 * mm, fill=0, stroke=1)
-        c.rect(W * 0.61, H - 66 * mm, 54 * mm, 18 * mm, fill=0, stroke=1)
+        c.rect(14 * mm, 14 * mm, W * 0.38, H - 28 * mm, fill=0, stroke=1)
 
-        c.setFillColor(Color(1, 1, 1, alpha=0.05))
-        c.circle(W * 0.74, H * 0.52, 16 * mm, fill=1, stroke=0)
-        c.circle(W * 0.84, H * 0.44, 8 * mm, fill=1, stroke=0)
-        c.circle(W * 0.69, H * 0.31, 6 * mm, fill=1, stroke=0)
-
+        # Typography — left side
         c.setFillColor(Color(1, 1, 1, alpha=0.42))
         c.setFont(sans_font, 8)
         c.drawString(18 * mm, H - 16 * mm, "MAISON FOLIO")
@@ -679,14 +688,14 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
 
         _draw_divider(26 * mm, 76 * mm, H * 0.37, Color(gold.red, gold.green, gold.blue, alpha=0.35))
 
+        # Vertical accent lines
         c.setStrokeColor(Color(gold.red, gold.green, gold.blue, alpha=0.24))
         c.setLineWidth(0.6)
         c.line(24 * mm, H * 0.62, 24 * mm, H * 0.34)
-        c.line(82 * mm, H * 0.62, 82 * mm, H * 0.48)
 
         c.setFillColor(Color(1, 1, 1, alpha=0.24))
         c.setFont(display_font, 26)
-        c.drawRightString(W - 22 * mm, 24 * mm, "Vol. I")
+        c.drawRightString(W * 0.40, 24 * mm, "Vol. I")
 
     def _back_cover(page):
         _fill_page(obsidian)
@@ -703,7 +712,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         _editorial_bg(light=True, page=page)
         if page.photos:
             pal = _pal(page)
-            _draw_panel_photo(page.photos[0], 44 * mm, TEXT_STRIP_H + 4 * mm, W - 88 * mm, H - TEXT_STRIP_H - 28 * mm, matte=5 * mm, panel=pal["panel"])
+            _draw_panel_photo(page.photos[0], 28 * mm, TEXT_STRIP_H + 4 * mm, W - 56 * mm, H - TEXT_STRIP_H - 20 * mm, matte=3 * mm, panel=pal["panel"])
         # Consistent bottom-left text strip
         _draw_text_strip(page, has_photo_behind=False)
 
@@ -712,12 +721,19 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         _fill_page(pal["bg"])
         if page.photos:
             _draw_bleed_photo(page.photos[0], 0, 0, W, H, crop_tolerance=0.22, bg=pal["surface"])
-            # Subtle left edge darkening
-            c.setFillColor(Color(0, 0, 0, alpha=0.14))
+            # Left edge vignette
+            c.setFillColor(Color(0, 0, 0, alpha=0.18))
             c.rect(0, 0, 14 * mm, H, fill=1, stroke=0)
             accent = pal["accent"]
             _draw_accent_rule(10 * mm, H - 18 * mm, 42 * mm, horizontal=False, alpha=0.30, color=accent)
             _draw_accent_rule(W - 52 * mm, 16 * mm, 34 * mm, horizontal=True, alpha=0.30, color=accent)
+            # Corner brackets for editorial framing
+            _draw_corner_bracket(W - 16 * mm, H - 14 * mm, size=10 * mm, color=Color(1, 1, 1, alpha=0.14))
+            c.saveState()
+            c.translate(16 * mm, 14 * mm)
+            c.rotate(180)
+            _draw_corner_bracket(0, 0, size=10 * mm, color=Color(1, 1, 1, alpha=0.14))
+            c.restoreState()
         # Consistent bottom-left text strip (with scrim over photo)
         _draw_text_strip(page, has_photo_behind=True)
 
