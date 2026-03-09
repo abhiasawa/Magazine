@@ -430,14 +430,18 @@ def create_app() -> Flask:
 
             output_path = generate_pdf(pages_spec, style=style)
 
-            # Render video in background thread (non-blocking)
+            # Render video: sync on Vercel (no daemon threads), async locally
             save_json(VIDEO_STATUS, {"status": "rendering"})
-            video_thread = threading.Thread(
-                target=_render_video_background,
-                args=(pages_spec, photo_analyses, title, subtitle),
-                daemon=True,
-            )
-            video_thread.start()
+            is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+            if is_vercel:
+                _render_video_background(pages_spec, photo_analyses, title, subtitle)
+            else:
+                video_thread = threading.Thread(
+                    target=_render_video_background,
+                    args=(pages_spec, photo_analyses, title, subtitle),
+                    daemon=True,
+                )
+                video_thread.start()
 
             logger.info(
                 "magazine_generated selected=%s imported=%s skipped=%s pages=%s",

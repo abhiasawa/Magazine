@@ -14,3 +14,6 @@ reportlab
 openai
 pytest
 cryptography
+av>=12.0
+imageio-ffmpeg>=0.5.1
+numpy>=1.24
