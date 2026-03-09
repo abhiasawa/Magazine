@@ -71,8 +71,12 @@ def load_approved_photos() -> list[dict]:
     face_results = load_json(FACE_RESULTS, {})
 
     approved = []
+    seen_ids: set[str] = set()
     for p in photos:
         pid = p["id"]
+        if pid in seen_ids:
+            continue
+        seen_ids.add(pid)
         entry = review_state.get(pid, {"status": "pending", "hero_pin": False, "caption": ""})
         if _review_status(entry) == "rejected":
             continue
@@ -351,5 +355,16 @@ def build_layout(
                 page_number=page_num,
             )
         )
+
+    # Safety: strip any photo that already appeared on an earlier page
+    used_ids: set[str] = set()
+    for page in pages_out:
+        unique = []
+        for photo in page.photos:
+            pid = photo["id"]
+            if pid not in used_ids:
+                used_ids.add(pid)
+                unique.append(photo)
+        page.photos = unique
 
     return pages_out

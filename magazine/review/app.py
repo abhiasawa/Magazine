@@ -18,6 +18,7 @@ from magazine.config import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
+    OPENAI_API_KEY,
     ORIGINALS_DIR,
     OUTPUT_DIR,
     THUMBNAILS_DIR,
@@ -97,6 +98,25 @@ def _download_and_import_google_selection(token: str, session_id: str) -> dict:
     items = picker.get_media_items()
     if not items:
         raise ValueError("No photos were selected in Google Photos.")
+
+    # Deduplicate items by Google media item ID before downloading.
+    # Google Photos can return the same photo multiple times (pagination overlap,
+    # shared albums, live photos with paired stills).
+    seen_item_ids: set[str] = set()
+    unique_items: list[dict] = []
+    for item in items:
+        item_id = item.get("id", "")
+        if item_id and item_id in seen_item_ids:
+            logger.info("Skipping duplicate Google item ID: %s", item_id)
+            continue
+        if item_id:
+            seen_item_ids.add(item_id)
+        unique_items.append(item)
+
+    deduped_count = len(items) - len(unique_items)
+    if deduped_count:
+        logger.info("Removed %d duplicate Google Photos items", deduped_count)
+    items = unique_items
 
     _reset_workspace()
 
@@ -460,5 +480,18 @@ def create_app() -> Flask:
             flash("Generate a magazine first to download the video.", "error")
             return redirect(url_for("import_screen"))
         return send_file(video_path, mimetype="video/mp4", as_attachment=True, download_name="Maison-Folio.mp4")
+
+    @app.route("/api/debug/logs")
+    def api_debug_logs():
+        """Return the last 100 lines of the API debug log.
+
+        Visit /api/debug/logs in the browser after generating a magazine
+        to see exactly what happened with the OpenAI API calls.
+        """
+        log_path = WORKSPACE / "api_debug.log"
+        if not log_path.exists():
+            return jsonify({"lines": [], "message": "No API log yet. Generate a magazine first."})
+        lines = log_path.read_text().strip().splitlines()
+        return jsonify({"lines": lines[-100:], "total_lines": len(lines)})
 
     return app

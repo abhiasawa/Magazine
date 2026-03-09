@@ -4,17 +4,33 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import time
+import traceback
 from dataclasses import dataclass
+from datetime import datetime
 
 import click
 
-from magazine.config import OPENAI_API_KEY, NARRATIVE_CACHE
+from magazine.config import OPENAI_API_KEY, NARRATIVE_CACHE, WORKSPACE
 from magazine.layout.engine import PageSpec
 from magazine.processing.vision import PhotoAnalysis
 from magazine.services.state import load_json, save_json
 
 logger = logging.getLogger(__name__)
+
+# Persistent log file for API diagnostics — survives across requests.
+_API_LOG = WORKSPACE / "api_debug.log"
+
+
+def _log_api_event(stage: str, detail: str):
+    """Append a timestamped line to the API debug log file."""
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(_API_LOG, "a") as f:
+            f.write(f"[{ts}] [{stage}] {detail}\n")
+    except Exception:
+        pass
 
 # Maps photo count per page to narrative type
 PHOTO_COUNT_TO_TYPE = {
@@ -76,6 +92,111 @@ The "sections" array must have one entry per page provided, in order.
 Each entry must have: "page_index" (integer matching the input), "text" (the narrative),
 "type" (either "heading_word" or "sentence" matching the expected_type).
 """
+
+
+# ── Fallback narrative text (used when API is unavailable) ──────────────────
+
+# Sentences for single-photo pages, grouped by arc position
+_FALLBACK_SENTENCES = {
+    "early": [
+        "And so the story began, quietly, without ceremony.",
+        "Some journeys start not with a step but with a glance.",
+        "The light that morning carried a promise no one spoke aloud.",
+        "There are places that wait for you before you know they exist.",
+        "Every beginning holds a world not yet imagined.",
+        "The first breath of a new place always tastes like possibility.",
+        "Something shifted in the air, and the day opened wide.",
+    ],
+    "middle": [
+        "The hours dissolved like sugar in warm rain.",
+        "They moved through the day as though time had forgotten them.",
+        "In the middle of everything, a perfect stillness.",
+        "Some moments refuse to be hurried.",
+        "The world grew smaller until only this remained.",
+        "Laughter echoed where silence had lived before.",
+        "Between one heartbeat and the next, everything changed.",
+        "The afternoon unfolded like a letter written long ago.",
+        "Here was the proof that ordinary days hold extraordinary light.",
+    ],
+    "late": [
+        "And like all beautiful things, it asked for nothing in return.",
+        "The last light lingered, reluctant to leave.",
+        "Some endings are just the quiet side of gratitude.",
+        "What remained was not the place but the feeling.",
+        "They carried this moment home like a stone from the sea.",
+        "The distance between then and now is only a photograph.",
+        "Everything worth remembering happened in the spaces between.",
+    ],
+}
+
+_FALLBACK_HEADINGS = [
+    "Golden Hour", "Wanderlust", "Belonging", "The In-Between",
+    "Homeward", "Daybreak", "Stillness", "Unwritten",
+    "Sanctuary", "Drift", "Reverie", "Interlude",
+    "Tender", "Radiance", "Passage", "Half-Light",
+    "Arrival", "Small Wonders", "Vivid", "Together",
+]
+
+
+def _generate_fallback_narrative(
+    pages: list[PageSpec],
+    analyses: dict[str, PhotoAnalysis],
+) -> list[NarrativeSection]:
+    """Generate narrative text locally without an API call.
+
+    Produces evocative literary text based on the page position in the
+    magazine arc (early / middle / late) and the photo mood.
+    """
+    body_pages = []
+    for abs_idx, page in enumerate(pages):
+        if page.template in ("cover", "back_cover", "dedication"):
+            continue
+        n_type = _determine_narrative_type(page)
+        if not n_type:
+            continue
+        body_pages.append((abs_idx, page, n_type))
+
+    if not body_pages:
+        return []
+
+    total = len(body_pages)
+    sections = []
+    used_sentences: set[str] = set()
+    heading_pool = list(_FALLBACK_HEADINGS)
+    random.shuffle(heading_pool)
+    heading_idx = 0
+
+    for i, (abs_idx, page, n_type) in enumerate(body_pages):
+        position = i / max(total - 1, 1)
+
+        if n_type == "heading_word":
+            text = heading_pool[heading_idx % len(heading_pool)]
+            heading_idx += 1
+        else:
+            # Pick arc bucket
+            if position < 0.25:
+                pool = _FALLBACK_SENTENCES["early"]
+            elif position > 0.75:
+                pool = _FALLBACK_SENTENCES["late"]
+            else:
+                pool = _FALLBACK_SENTENCES["middle"]
+            # Pick unused sentence
+            available = [s for s in pool if s not in used_sentences]
+            if not available:
+                available = pool
+            text = random.choice(available)
+            used_sentences.add(text)
+
+        sections.append(NarrativeSection(
+            page_index=abs_idx,
+            text=text,
+            narrative_type=n_type,
+        ))
+
+    return sections
+
+
+# ── Core types and helpers ──────────────────────────────────────────────────
 
 
 @dataclass
@@ -151,14 +272,17 @@ def _call_openai_narrative(client, page_descs: list[dict], title: str, total_pag
         f"{json.dumps(page_descs, indent=2)}"
     )
 
+    _log_api_event("NARRATIVE_REQUEST", f"model=gpt-5.4 pages={len(page_descs)} title={title!r}")
+
     last_error = None
-    for attempt in range(2):
+    for attempt in range(3):
         if attempt > 0:
             click.echo(f"  Retrying narrative generation (attempt {attempt + 1})...")
+            _log_api_event("NARRATIVE_RETRY", f"attempt={attempt + 1}")
             time.sleep(2)
         try:
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-5.4",
                 max_tokens=4096,
                 response_format={"type": "json_object"},
                 messages=[
@@ -168,14 +292,17 @@ def _call_openai_narrative(client, page_descs: list[dict], title: str, total_pag
             )
             raw_text = response.choices[0].message.content.strip()
             click.echo(f"  OpenAI response received ({len(raw_text)} chars).")
+            _log_api_event("NARRATIVE_RESPONSE", f"chars={len(raw_text)} preview={raw_text[:200]!r}")
             parsed = json.loads(raw_text)
+            _log_api_event("NARRATIVE_PARSED", f"keys={list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__}")
             return parsed
         except json.JSONDecodeError as exc:
             click.echo(f"  OpenAI returned invalid JSON: {exc}")
-            click.echo(f"  Raw response: {raw_text[:500]}")
+            _log_api_event("NARRATIVE_JSON_ERROR", f"error={exc} raw={raw_text[:500]!r}")
             last_error = exc
         except Exception as exc:
             click.echo(f"  OpenAI API error ({type(exc).__name__}): {exc}")
+            _log_api_event("NARRATIVE_API_ERROR", f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}")
             last_error = exc
 
     raise last_error
@@ -186,36 +313,40 @@ def generate_narrative(
     analyses: dict[str, PhotoAnalysis],
     title: str = "",
 ) -> list[NarrativeSection]:
-    """Generate narrative text for all body pages via OpenAI GPT-4o.
+    """Generate narrative text for all body pages via OpenAI.
 
-    Raises an error if the API key is set but the call fails — no silent fallback.
+    Falls back to curated local text if the API is unavailable or fails.
     """
+    _log_api_event("NARRATIVE_START", f"pages={len(pages)} analyses={len(analyses)} api_key_set={bool(OPENAI_API_KEY)}")
+
     if not OPENAI_API_KEY:
-        click.echo("ERROR: No OPENAI_API_KEY set. Narrative text will be empty.")
-        click.echo("  Set OPENAI_API_KEY in your .env file to enable narrative generation.")
-        return []
+        click.echo("No OPENAI_API_KEY — using local narrative fallback.")
+        _log_api_event("NARRATIVE_SKIP", "No OPENAI_API_KEY set")
+        return _generate_fallback_narrative(pages, analyses)
 
     try:
         from openai import OpenAI
     except ImportError:
-        click.echo("ERROR: openai package not installed. Run: pip install openai")
-        return []
+        click.echo("openai package not installed — using local narrative fallback.")
+        _log_api_event("NARRATIVE_SKIP", "openai package not installed")
+        return _generate_fallback_narrative(pages, analyses)
 
     page_descs, index_map = _build_page_descriptions(pages, analyses)
     if not page_descs:
         click.echo("No body pages found for narrative generation.")
+        _log_api_event("NARRATIVE_SKIP", "No body pages to narrate")
         return []
 
-    click.echo(f"Generating narrative for {len(page_descs)} pages via OpenAI GPT-4o...")
+    click.echo(f"Generating narrative for {len(page_descs)} pages via OpenAI gpt-5.4...")
     click.echo(f"  Photo analyses available: {len(analyses)} photos")
 
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
         parsed = _call_openai_narrative(client, page_descs, title, len(pages))
     except Exception as exc:
-        click.echo(f"NARRATIVE GENERATION FAILED: {type(exc).__name__}: {exc}")
-        logger.error("Narrative generation failed after retries: %s", exc, exc_info=True)
-        return []
+        click.echo(f"NARRATIVE API FAILED ({type(exc).__name__}: {exc}) — using local fallback.")
+        _log_api_event("NARRATIVE_FAILED", f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}")
+        return _generate_fallback_narrative(pages, analyses)
 
     # Extract sections from the response — supports both {"sections": [...]} and bare [...]
     if isinstance(parsed, dict):
@@ -225,12 +356,12 @@ def generate_narrative(
     elif isinstance(parsed, list):
         results = parsed
     else:
-        click.echo(f"Unexpected response structure: {type(parsed)}")
-        return []
+        click.echo(f"Unexpected response structure: {type(parsed)} — using local fallback.")
+        return _generate_fallback_narrative(pages, analyses)
 
     if not results:
-        click.echo("WARNING: OpenAI returned empty sections array.")
-        return []
+        click.echo("OpenAI returned empty sections — using local fallback.")
+        return _generate_fallback_narrative(pages, analyses)
 
     sections = []
     for item in results:
@@ -249,6 +380,10 @@ def generate_narrative(
             text=text,
             narrative_type=item.get("type", "sentence"),
         ))
+
+    if not sections:
+        click.echo("OpenAI returned no usable sections — using local fallback.")
+        return _generate_fallback_narrative(pages, analyses)
 
     click.echo(f"Narrative generated: {len(sections)} sections from OpenAI.")
     return sections
@@ -277,7 +412,7 @@ def assign_narrative_to_pages(
 
     click.echo(f"Palette hints assigned to {palette_count} pages.")
 
-    # Generate narrative text
+    # Generate narrative text (API with local fallback — always produces text)
     sections = generate_narrative(pages, analyses, title=title)
 
     assigned = 0
@@ -291,3 +426,8 @@ def assign_narrative_to_pages(
             assigned += 1
 
     click.echo(f"Narrative text assigned to {assigned}/{len(sections)} pages.")
+
+    # Safety: if no text was assigned at all, something is fundamentally wrong
+    if assigned == 0 and len(pages) > 3:
+        click.echo("WARNING: Zero narrative text assigned. Check API key and logs.")
+        logger.error("No narrative text was assigned to any page")

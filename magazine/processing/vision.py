@@ -1,11 +1,13 @@
-"""AI vision analysis of photos using OpenAI GPT-4o API."""
+"""AI vision analysis of photos using OpenAI GPT-5.4 vision API."""
 
 from __future__ import annotations
 
 import base64
 import json
 import logging
+import traceback
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -15,10 +17,23 @@ from magazine.config import (
     OPENAI_API_KEY,
     VISION_ANALYSIS,
     THUMBNAILS_DIR,
+    WORKSPACE,
 )
 from magazine.services.state import load_json, save_json
 
 logger = logging.getLogger(__name__)
+
+_API_LOG = WORKSPACE / "api_debug.log"
+
+
+def _log_api_event(stage: str, detail: str):
+    """Append a timestamped line to the API debug log file."""
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(_API_LOG, "a") as f:
+            f.write(f"[{ts}] [{stage}] {detail}\n")
+    except Exception:
+        pass
 
 ANALYSIS_PROMPT = """\
 You are a magazine art director studying photographs for an editorial spread.
@@ -78,7 +93,7 @@ def _photo_to_base64(photo: dict) -> str | None:
 
 
 def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
-    """Send a batch of photos to GPT-4o for vision analysis."""
+    """Send a batch of photos to GPT-5.4 for vision analysis."""
     content = []
     photo_ids = []
     for photo in photos:
@@ -104,13 +119,17 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
 
     content.append({"type": "text", "text": ANALYSIS_PROMPT})
 
+    _log_api_event("VISION_REQUEST", f"model=gpt-5.4 batch_size={len(photo_ids)} ids={photo_ids}")
+
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5.4",
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
 
     raw_text = response.choices[0].message.content.strip()
+    _log_api_event("VISION_RESPONSE", f"chars={len(raw_text)} preview={raw_text[:200]!r}")
+
     # Strip markdown fences if present
     if raw_text.startswith("```"):
         raw_text = raw_text.split("\n", 1)[1] if "\n" in raw_text else raw_text[3:]
@@ -119,9 +138,12 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
 
     try:
         results = json.loads(raw_text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        _log_api_event("VISION_JSON_ERROR", f"error={exc} raw={raw_text[:500]!r}")
         logger.warning("Failed to parse vision analysis response")
         return []
+
+    _log_api_event("VISION_PARSED", f"results_count={len(results)}")
 
     analyses = []
     for item in results:
@@ -142,19 +164,23 @@ def _analyze_batch(client, photos: list[dict]) -> list[PhotoAnalysis]:
 
 
 def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAnalysis]:
-    """Analyze all photos using Claude vision API. Returns dict keyed by photo_id.
+    """Analyze all photos using GPT-5.4 vision API. Returns dict keyed by photo_id.
 
     Results are cached — photos already analyzed are skipped.
     Gracefully returns empty dict if API key is missing or calls fail.
     """
+    _log_api_event("VISION_START", f"total_photos={len(photos)} api_key_set={bool(OPENAI_API_KEY)}")
+
     if not OPENAI_API_KEY:
         click.echo("No OPENAI_API_KEY set — skipping AI vision analysis.")
+        _log_api_event("VISION_SKIP", "No OPENAI_API_KEY set")
         return {}
 
     try:
         from openai import OpenAI
     except ImportError:
         click.echo("openai package not installed — skipping vision analysis.")
+        _log_api_event("VISION_SKIP", "openai package not installed")
         return {}
 
     cache = _load_cache()
@@ -162,9 +188,10 @@ def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAn
 
     if not uncached:
         click.echo(f"Vision analysis cached for all {len(photos)} photos.")
+        _log_api_event("VISION_CACHED", f"all {len(photos)} photos already cached")
         return {pid: PhotoAnalysis(**data) for pid, data in cache.items() if pid in {p["id"] for p in photos}}
 
-    click.echo(f"Analyzing {len(uncached)} photos with GPT-4o vision ({len(photos) - len(uncached)} cached)...")
+    click.echo(f"Analyzing {len(uncached)} photos with GPT-5.4 vision ({len(photos) - len(uncached)} cached)...")
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     batches = [uncached[i:i + batch_size] for i in range(0, len(uncached), batch_size)]
@@ -175,9 +202,12 @@ def analyze_photos(photos: list[dict], batch_size: int = 5) -> dict[str, PhotoAn
             results = _analyze_batch(client, batch)
             all_analyses.extend(results)
         except Exception as exc:
+            _log_api_event("VISION_BATCH_ERROR", f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}")
             logger.warning("Vision analysis batch failed: %s", exc)
             click.echo(f"Warning: Vision analysis batch failed: {exc}")
             continue
+
+    _log_api_event("VISION_DONE", f"analyzed={len(all_analyses)} out of {len(uncached)} uncached")
 
     # Update cache
     for analysis in all_analyses:

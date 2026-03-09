@@ -38,6 +38,36 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
+def _perceptual_hash(path: Path, hash_size: int = 8) -> str | None:
+    """Compute a simple average-hash (aHash) for perceptual dedup.
+
+    Resizes image to hash_size x hash_size grayscale, then creates a binary
+    hash based on whether each pixel is above or below the mean brightness.
+    Two visually similar images (burst shots, re-encoded copies) will produce
+    the same or nearly identical hash.
+    """
+    try:
+        from PIL import Image
+        img = Image.open(path).convert("L").resize(
+            (hash_size, hash_size), Image.LANCZOS
+        )
+        pixels = list(img.getdata())
+        avg = sum(pixels) / len(pixels)
+        bits = "".join("1" if px >= avg else "0" for px in pixels)
+        return hex(int(bits, 2))
+    except Exception:
+        return None
+
+
+def _hamming_distance(h1: str, h2: str) -> int:
+    """Hamming distance between two hex perceptual hashes."""
+    try:
+        i1, i2 = int(h1, 16), int(h2, 16)
+        return bin(i1 ^ i2).count("1")
+    except (ValueError, TypeError):
+        return 999
+
+
 def _extract_video_frame(video_path: Path, dest_jpeg: Path, seek_seconds: float = 2.0) -> Path | None:
     """Extract a representative still frame from a video using FFmpeg."""
     try:
@@ -133,6 +163,10 @@ def import_existing_paths(paths: Iterable[Path], source_prefix: str) -> dict:
     existing_ids = {p["id"] for p in load_photos_manifest()}
     imported: list[dict] = []
     skipped = 0
+    perceptual_skipped = 0
+
+    # Collect perceptual hashes of already-imported images for visual dedup
+    seen_phashes: list[str] = []
 
     for src in paths:
         if not src.exists():
@@ -147,6 +181,19 @@ def import_existing_paths(paths: Iterable[Path], source_prefix: str) -> dict:
         if content_hash in hash_map:
             skipped += 1
             continue
+
+        # Perceptual hash dedup: catch visually identical photos with
+        # different bytes (burst shots, re-encoded copies, live photos).
+        if not is_video:
+            phash = _perceptual_hash(src)
+            if phash and any(_hamming_distance(phash, h) <= 4 for h in seen_phashes):
+                logger.info("Perceptual dedup: %s looks like an existing photo, skipping", src.name)
+                skipped += 1
+                perceptual_skipped += 1
+                hash_map[content_hash] = "__perceptual_dedup__"
+                continue
+            if phash:
+                seen_phashes.append(phash)
 
         pid = _new_photo_id(src.name, content_hash, existing_ids)
         existing_ids.add(pid)
@@ -177,6 +224,8 @@ def import_existing_paths(paths: Iterable[Path], source_prefix: str) -> dict:
 
     save_json(PHOTO_HASHES, hash_map)
     added = _persist_imported(imported)
+    if perceptual_skipped:
+        logger.info("Perceptual dedup removed %d visually duplicate photos", perceptual_skipped)
     return {
         "total": len(paths),
         "imported": added,
