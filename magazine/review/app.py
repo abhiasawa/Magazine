@@ -25,7 +25,7 @@ from magazine.config import (
 )
 from magazine.services.state import save_json, load_json
 from magazine.layout.engine import build_layout, estimate_page_count
-from magazine.processing.narrative import assign_narrative_to_pages
+from magazine.processing.narrative import MOOD_TO_PALETTE, MOOD_TO_DESIGN
 from magazine.processing.vision import analyze_photos
 from magazine.services.importer import import_existing_paths
 from magazine.services.state import (
@@ -406,8 +406,15 @@ def create_app() -> Flask:
                 fixed_pages=fixed_pages,
             )
 
-            # Assign narrative text + mood palettes to each page
-            assign_narrative_to_pages(pages_spec, photo_analyses, title=title)
+            # Assign mood palettes from photo analysis (no text overlay)
+            for _pg in pages_spec:
+                if _pg.template in ("cover", "back_cover"):
+                    continue
+                if _pg.photos:
+                    _a = photo_analyses.get(_pg.photos[0]["id"])
+                    if _a:
+                        _pg.palette_hint = MOOD_TO_PALETTE.get(_a.mood, "warm_gold")
+                        _pg.design_mood = MOOD_TO_DESIGN.get(_a.mood, "")
 
             from magazine.pdf.generator import generate_pdf
 

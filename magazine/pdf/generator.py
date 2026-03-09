@@ -483,124 +483,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         c.setLineWidth(0.3)
         c.line(x1, y, x2, y)
 
-    # ── Narrative text helpers ──
-
-    # Consistent text strip dimensions (used by every single-photo template)
-    TEXT_STRIP_H = 32 * mm   # height of bottom text zone
-    TEXT_STRIP_X = 24 * mm   # left margin for sentence text
-    TEXT_STRIP_Y = 18 * mm   # baseline of first text line (from page bottom)
-    TEXT_STRIP_W = W * 0.52  # reading width (~155mm, left-aligned)
-
-    def _draw_gradient_scrim(x, y, w, h, steps=12):
-        """Draw a bottom-to-top gradient scrim for text legibility over photos."""
-        step_h = h / steps
-        for i in range(steps):
-            alpha = 0.52 * (1 - i / steps) ** 1.8
-            c.setFillColor(Color(0, 0, 0, alpha=alpha))
-            c.rect(x, y + i * step_h, w, step_h + 0.5, fill=1, stroke=0)
-
-    def _draw_text_strip(page, has_photo_behind=False):
-        """Render narrative sentence in a consistent bottom-left strip.
-
-        Every single-photo template calls this so the reader always
-        finds text in the same place: bottom-left of the page.
-
-        When has_photo_behind=True, a gradient scrim is drawn first
-        and text is rendered in white. Otherwise text uses the palette
-        text color on the existing background.
-        """
-        if not page.quote or page.quote.get("type") != "sentence":
-            return
-        text = page.quote.get("text", "")
-        if not text:
-            return
-        pal = _pal(page)
-
-        if has_photo_behind:
-            # Full-width gradient scrim for legibility over photos
-            _draw_gradient_scrim(0, 0, W, TEXT_STRIP_H + 16 * mm)
-            text_color = Color(1, 1, 1, alpha=0.92)
-        else:
-            text_color = Color(
-                pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.88,
-            )
-
-        _draw_text_block(
-            text, TEXT_STRIP_X, TEXT_STRIP_Y,
-            font=serif_font, size=14,
-            color=text_color,
-            max_width=TEXT_STRIP_W,
-            leading_mult=1.7,
-        )
-
-    def _draw_narrative_sentence(page, x, y, max_width):
-        """Render a narrative sentence on a page if present.
-
-        DEPRECATED — kept for any templates that need custom placement.
-        Prefer _draw_text_strip() for consistent bottom-left positioning.
-        """
-        if not page.quote or page.quote.get("type") != "sentence":
-            return
-        text = page.quote.get("text", "")
-        if not text:
-            return
-        pal = _pal(page)
-        _draw_text_block(
-            text, x, y,
-            font=serif_font, size=14,
-            color=Color(pal["text"].red, pal["text"].green, pal["text"].blue, alpha=0.88),
-            max_width=max_width,
-            leading_mult=1.7,
-        )
-
-    def _draw_heading_word(page, x, y, max_width, size=40, align="center"):
-        """Render an evocative heading word on a multi-photo page."""
-        if not page.quote or page.quote.get("type") != "heading_word":
-            return
-        text = page.quote.get("text", "")
-        if not text:
-            return
-        pal = _pal(page)
-        # Wide letter-spacing via manual character placement for display font
-        c.setFont(display_font, size)
-        accent = pal["accent"]
-        c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.82))
-        text_w = c.stringWidth(text, display_font, size)
-        if align == "center":
-            tx = x + (max_width - text_w) / 2
-        elif align == "right":
-            tx = x + max_width - text_w
-        else:
-            tx = x
-        c.drawString(tx, y, text)
-
-    def _draw_vertical_heading(page, x, y, height):
-        """Render heading word vertically (rotated 90deg) in a gutter."""
-        if not page.quote or page.quote.get("type") != "heading_word":
-            return
-        text = page.quote.get("text", "").upper()
-        if not text:
-            return
-        pal = _pal(page)
-        c.saveState()
-        c.translate(x, y)
-        c.rotate(90)
-        c.setFont(sans_font, 8)
-        c.setFillColor(Color(pal["muted"].red, pal["muted"].green, pal["muted"].blue, alpha=0.62))
-        # Draw with wide letter-spacing
-        char_x = 0
-        for ch in text:
-            c.drawString(char_x, 0, ch)
-            char_x += c.stringWidth(ch, sans_font, 8) + 2.5
-        c.restoreState()
-
-    def _draw_pull_quote_mark(x, y, pal):
-        """Large decorative opening quote mark behind editorial text."""
-        accent = pal["accent"]
-        c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.08))
-        c.setFont(display_font, 96)
-        c.drawString(x, y, "\u201C")
-
     # ── Background helpers ──
 
     def _editorial_bg(light=True, page=None):
@@ -637,7 +519,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             c.rect(W * 0.68, H * 0.64, 52 * mm, 2 * mm, fill=1, stroke=0)
             c.rect(W * 0.08, H * 0.14, 34 * mm, 2 * mm, fill=1, stroke=0)
         # Thin horizontal accent rule near bottom
-        _draw_accent_rule(W * 0.08, TEXT_STRIP_H + 8 * mm, W * 0.84, horizontal=True, alpha=0.10, color=accent)
+        _draw_accent_rule(W * 0.08, 8 * mm, W * 0.84, horizontal=True, alpha=0.10, color=accent)
 
     # ── Template renderers ──
 
@@ -712,9 +594,7 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         _editorial_bg(light=True, page=page)
         if page.photos:
             pal = _pal(page)
-            _draw_panel_photo(page.photos[0], 28 * mm, TEXT_STRIP_H + 4 * mm, W - 56 * mm, H - TEXT_STRIP_H - 20 * mm, matte=3 * mm, panel=pal["panel"])
-        # Consistent bottom-left text strip
-        _draw_text_strip(page, has_photo_behind=False)
+            _draw_panel_photo(page.photos[0], 28 * mm, 16 * mm, W - 56 * mm, H - 32 * mm, matte=3 * mm, panel=pal["panel"])
 
     def _full_bleed(page):
         pal = _pal(page)
@@ -734,8 +614,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             c.rotate(180)
             _draw_corner_bracket(0, 0, size=10 * mm, color=Color(1, 1, 1, alpha=0.14))
             c.restoreState()
-        # Consistent bottom-left text strip (with scrim over photo)
-        _draw_text_strip(page, has_photo_behind=True)
 
     def _cinematic(page):
         pal = _pal(page)
@@ -744,8 +622,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_polygon_photo(
                 page.photos[0],
                 [
-                    (0, TEXT_STRIP_H),
-                    (W * 0.78, TEXT_STRIP_H),
+                    (0, 0),
+                    (W * 0.78, 0),
                     (W, H * 0.36),
                     (W, H),
                     (W * 0.18, H),
@@ -756,8 +634,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             )
             accent = pal["accent"]
             _draw_split_separator(W * 0.74, H * 0.16, 18 * mm, 48 * mm, fill=pal["panel"])
-        # Consistent bottom-left text strip (below the polygon photo)
-        _draw_text_strip(page, has_photo_behind=False)
 
     def _two_photos(page):
         pal = _pal(page)
@@ -781,8 +657,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             )
         accent = pal["accent"]
         _draw_accent_rule(left_w + gap + 12 * mm, H - 20 * mm, 22 * mm, horizontal=True, alpha=0.34, color=accent)
-        # Heading word at top center
-        _draw_heading_word(page, 0, H - 18 * mm, max_width=left_w, size=32, align="center")
 
     def _three_photos(page):
         pal = _pal(page)
@@ -800,8 +674,6 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_bleed_photo(photo, x, y, right_w, (H - gap) / 2, crop_tolerance=0.16, bg=pal["smoke"])
         _draw_gutter(left_w, 0, gap, H, fill=pal.get("panel", ivory))
         _draw_gutter(left_w + gap, H / 2 - gap / 2, right_w, gap, fill=pal.get("panel", ivory))
-        # Vertical heading in the gutter
-        _draw_vertical_heading(page, left_w + gap / 2 - 1, H * 0.35, H * 0.3)
 
     def _four_photos(page):
         pal = _pal(page)
@@ -835,10 +707,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
         _draw_gutter(left_w, 0, gap, H, fill=pal.get("panel", parchment))
         _draw_gutter(left_w + gap, bot_h, right_w, gap, fill=pal.get("panel", parchment))
         _draw_gutter(left_w + gap + (right_w - gap) / 2, 0, gap, bot_h, fill=pal.get("panel", parchment))
-        # Heading word at bottom center
         accent = pal["accent"]
         _draw_accent_rule(W * 0.35, 12 * mm, W * 0.3, horizontal=True, alpha=0.20, color=accent)
-        _draw_heading_word(page, 0, 18 * mm, max_width=W, size=28, align="center")
 
     def _editorial(page):
         _editorial_bg(light=False, page=page)
@@ -848,29 +718,22 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             _draw_polygon_photo(
                 page.photos[0],
                 [
-                    (0, TEXT_STRIP_H),
-                    (img_w, TEXT_STRIP_H),
+                    (0, 0),
+                    (img_w, 0),
                     (img_w - 18 * mm, H),
                     (0, H),
                 ],
                 crop_tolerance=0.2,
                 bg=pal["surface"],
             )
-        # Right sidebar — decorative accent only (text moved to bottom strip)
+        # Right sidebar — decorative accent
         sidebar_x = img_w + 8 * mm
         c.setFillColor(Color(1, 1, 1, alpha=0.04))
-        c.rect(img_w + 6 * mm, TEXT_STRIP_H, W - img_w - 6 * mm, H - TEXT_STRIP_H, fill=1, stroke=0)
+        c.rect(img_w + 6 * mm, 0, W - img_w - 6 * mm, H, fill=1, stroke=0)
         accent = pal["accent"]
         c.setFillColor(Color(accent.red, accent.green, accent.blue, alpha=0.22))
-        c.rect(img_w + 6 * mm, TEXT_STRIP_H, 2 * mm, H - TEXT_STRIP_H, fill=1, stroke=0)
-        # Pull-quote mark as decorative element in sidebar
-        if page.quote and page.quote.get("type") == "sentence":
-            _draw_pull_quote_mark(sidebar_x + 2 * mm, H * 0.58, pal)
-            _draw_accent_rule(sidebar_x + 6 * mm, H * 0.44, 28 * mm, horizontal=True, alpha=0.24, color=accent)
-        else:
-            _draw_accent_rule(sidebar_x + 6 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24, color=accent)
-        # Consistent bottom-left text strip
-        _draw_text_strip(page, has_photo_behind=False)
+        c.rect(img_w + 6 * mm, 0, 2 * mm, H, fill=1, stroke=0)
+        _draw_accent_rule(sidebar_x + 6 * mm, H - 34 * mm, 28 * mm, horizontal=False, alpha=0.24, color=accent)
 
     def _mosaic(page):
         pal = _pal(page)
@@ -899,10 +762,8 @@ def _render_pdf(pages: list[PageSpec], output_path: Path):
             )
         _draw_gutter(0, bottom_h, W, gap, fill=pal.get("panel", ivory))
         _draw_gutter(left_w, H - top_h, gap, top_h, fill=pal.get("panel", ivory))
-        # Heading word bottom-right
         accent = pal["accent"]
         _draw_accent_rule(W * 0.55, 14 * mm, W * 0.25, horizontal=True, alpha=0.20, color=accent)
-        _draw_heading_word(page, W * 0.45, 20 * mm, max_width=W * 0.5, size=26, align="center")
 
     def _simple(page):
         """Fallback for unknown templates: place photos in a grid."""
